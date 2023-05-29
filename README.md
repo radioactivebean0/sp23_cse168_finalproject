@@ -1,0 +1,2 @@
+# CSE 168 Final Project: Photon mapping
+Hopefully an implementation of some progressive photon mapping algorithm to better model caustics and glass with global illumination. Extension of the existing UCSD CSE168 ray tracing render projects Torrey.
