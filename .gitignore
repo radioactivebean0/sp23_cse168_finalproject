@@ -34,7 +34,6 @@
 # CMake
 build/
 
-*.pdf
 
 # Vscode related
 .vscode
