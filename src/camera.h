@@ -8,6 +8,7 @@ struct Camera {
     Vector3 lookat;
     Vector3 up;
     Real vfov;
+    Vector3 llc, horizontal, vertical;
     int width, height;
 };
 

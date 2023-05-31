@@ -66,6 +66,8 @@ Scene::Scene(const ParsedScene &scene) :
             } else if (auto *tex = std::get_if<ParsedImageTexture>(&mirror->reflectance)){
                 materials.push_back(Material{.material_type = material_e::MirrorType, .reflectance = ImgTexture(tex->filename, tex->uscale, tex->vscale, tex->uoffset, tex->voffset)});
             }
+        } else if (auto *dielec = std::get_if<ParsedDielectric>(&parsed_mat)){
+            materials.push_back(Material{.material_type = material_e::DielectricType, .reflectance = SolidTexture{.reflectance = Vector3{1.0,1.0,1.0}}, .ref_index = dielec->inEta, .exponent = dielec->outEta});
         } else if (auto *plastic = std::get_if<ParsedPlastic>(&parsed_mat)){
             if (auto *tex = std::get_if<Vector3>(&plastic->reflectance)){
                 materials.push_back(Material{.material_type = material_e::PlasticType, .reflectance = SolidTexture{.reflectance = *tex}, .ref_index = plastic->eta});
@@ -644,7 +646,7 @@ Vector3 get_color_nobvh(const Scene &scene, const Vector3 &ray_in, const Vector3
 inline Vector3 rand_cos(pcg32_state &pcg_state){
     Real r1 = next_pcg32_real<Real>(pcg_state);
     Real r2 = next_pcg32_real<Real>(pcg_state);
-    Real z = sqrt(1-r2);
+    Real z = sqrt(1.0-r2);
 
     Real phi = c_TWOPI*r1;
     Real x = cos(phi)*sqrt(r2);
@@ -657,7 +659,7 @@ inline Vector3 rand_cos(pcg32_state &pcg_state){
 inline Vector3 rand_phong_cos(pcg32_state &pcg_state, Real alpha){
     Real u1 = next_pcg32_real<Real>(pcg_state);
     Real u2 = next_pcg32_real<Real>(pcg_state);
-    Real theta = acos(pow(1.0 - u1, 1/(alpha+1)));
+    Real theta = acos(pow(1.0 - u1, Real(1)/(alpha+1)));
     Real phi = c_TWOPI*u2;
 
     Real x = sin(theta)*cos(phi);
@@ -670,8 +672,27 @@ inline Vector3 rand_phong_cos(pcg32_state &pcg_state, Real alpha){
 // returning pdf of -1.0 means pure specular
 Vector3 brdf_sample(const Scene &scene, const Vector3 &ray, const material_e mat, const int mat_id, const Vector3 &sn, const Vector3 &gn, pcg32_state &pcg_state, int &specular){
     if (mat == material_e::MirrorType){ // mirrors
-            specular = 1;
-            return ray - 2.0*dot(ray, gn)*gn;
+        specular = 1;
+        return ray - 2.0*dot(ray, gn)*gn;
+    } else if (mat == material_e::DielectricType){
+        specular = 2;
+        const Real inIR = scene.materials.at(mat_id).ref_index;
+        const Real outIR = scene.materials.at(mat_id).exponent;
+        Real ref_ratio = (dot(ray,sn) < 0.0) ? outIR/inIR : inIR/outIR; // depends if ray points in or out
+        const Real cos_theta = fmin(dot(-ray, sn), 1.0);
+        Real sin_theta = sqrt(Real(1.0) - cos_theta*cos_theta);
+
+        Vector3 direction;
+        Real schlick_fresnel = pow((outIR-inIR)/(outIR+inIR), 2.0);
+        schlick_fresnel = schlick_fresnel + (1.0-schlick_fresnel)*pow(1.0-cos_theta, 5);
+        if (ref_ratio* sin_theta > 1.0 || schlick_fresnel > next_pcg32_real<Real>(pcg_state)){ // reflect
+            direction = ray - 2.0*dot(ray,sn)*sn;
+        } else { // refract
+            Vector3 r_out_perp = ref_ratio * (ray + cos_theta*sn);
+            Vector3 r_out_parallel = -sqrt(fabs(1.0 - length_squared(r_out_perp))) * sn;
+            direction = r_out_perp + r_out_parallel;
+        }
+        return direction;
     } else if (mat == material_e::PlasticType) { // plastic stocastically choose diffuse and reflect
         const Vector3 ray_reflect = ray - 2.0*dot(ray, gn)*gn;
         const Real fnot = pow((scene.materials.at(mat_id).ref_index - 1)/( scene.materials.at(mat_id).ref_index +1),2);
@@ -848,6 +869,7 @@ Real light_pdf(const Scene &scene, const Vector3 &omeganot, const Vector3 &pt){
     Real d_squared;
     Vector2 uv;
     const Real eps = 0.000001;
+    Real pdf = 0.0;
     for (int lit = 0; lit < scene.lights.size(); lit++){ // iterate all lights
         if (auto *alight = std::get_if<AreaLight>(&scene.lights.at(lit))){
             // do area light sampling here
@@ -860,8 +882,7 @@ Real light_pdf(const Scene &scene, const Vector3 &omeganot, const Vector3 &pt){
                     // Real solid_angle = c_TWOPI*(1-cos_theta_max);
                     // return  d_squared*1.0 / solid_angle;
                     Real cosine = dot(omeganot,normalize(sph->center-hit_pt));
-                    Real pdf = 2.0*d_squared/(cosine*(c_FOURPI*(sph->radius*sph->radius)));
-                    return pdf;
+                    pdf += (2.0*d_squared/(cosine*(c_FOURPI*(sph->radius*sph->radius))))/scene.lights.size();
                 } else {
                     continue;
                 }
@@ -876,19 +897,18 @@ Real light_pdf(const Scene &scene, const Vector3 &omeganot, const Vector3 &pt){
                     d_squared = distance_squared(pt, hit_pt);
                     Vector3 norm =  shading_norm(tri, uv);
                     Real cosine = dot(omeganot,-norm);
-                    return d_squared/(cosine*(0.5*length(cross(p2-p0,p1-p0))));
+                    pdf += (d_squared/(cosine*(0.5*length(cross(p2-p0,p1-p0)))))/scene.lights.size();
                 } else {
                     continue;
                 }
             } else {
                 assert(false);
             }
-        } else {
-            assert(false);
         }
     }
-    return 0.0;
+    return pdf;
 }
+
 Vector3 mis_path_trace(const Scene &scene, const Vector3 &ray, const Vector3 &ray_origin, pcg32_state &pcg_state, int max_depth){
     if (max_depth <= 0){return Vector3{0.0,0.0,0.0};}
     const Real eps = 0.00001;
@@ -946,6 +966,8 @@ Vector3 mis_path_trace(const Scene &scene, const Vector3 &ray, const Vector3 &ra
         Vector3 omeganot = brdf_sample(scene, ray, mat, mat_id, sn, gn, pcg_state, spec);
         if (spec==1){ // purely specular
             return emission + (kd + (1.0-kd)* pow((1.0 - dot(gn,omeganot)), 5))*mis_path_trace(scene, omeganot, pt, pcg_state, max_depth-1);
+        } else if (spec==2) { // dielectric
+            return emission + mis_path_trace(scene, omeganot, pt, pcg_state, max_depth-1);
         } else {
             Vector3 val;
             Real brdfpdf;
@@ -954,19 +976,19 @@ Vector3 mis_path_trace(const Scene &scene, const Vector3 &ray, const Vector3 &ra
             if (coinflip < 0.5){ // use light ray
                 if (brdf_eval(scene, ray, light_ray, mat, mat_id, sn, gn, kd, pcg_state, val, brdfpdf)){
                     Real combinedpdf = 0.5*brdfpdf + 0.5*light_pdf(scene, light_ray, pt);
-                    Vector3 temp_vec = val*mis_path_trace(scene, light_ray, pt, pcg_state, max_depth-1)/combinedpdf;
-                    return emission + temp_vec;
-                } else {
-                    return emission;
+                    if (max(val) > Real(0) && combinedpdf > Real(0)){
+                        return emission + val*mis_path_trace(scene, light_ray, pt, pcg_state, max_depth-1)/combinedpdf;
+                    }
                 }
             } else {
                 if (brdf_eval(scene, ray, omeganot, mat, mat_id, sn, gn, kd, pcg_state, val, brdfpdf)){
                     Real combinedpdf = 0.5*brdfpdf + 0.5*light_pdf(scene, omeganot, pt);
-                    return emission + val*mis_path_trace(scene, omeganot, pt, pcg_state, max_depth-1)/combinedpdf;
-                } else {
-                    return emission;
+                    if (max(val) > Real(0) && combinedpdf > Real(0)){
+                        return emission + val*mis_path_trace(scene, omeganot, pt, pcg_state, max_depth-1)/combinedpdf;
+                    }
                 }
             }
+            return emission;
         }
     } else {
         return scene.background_color;

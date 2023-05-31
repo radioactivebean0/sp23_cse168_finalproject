@@ -556,6 +556,18 @@ std::tuple<std::string /* ID */, ParsedMaterial> parse_bsdf(
             }
         }
         return std::make_tuple(id, ParsedBlinnPhongMicrofacet{reflectance, exponent});
+    } else if (type == "dielectric"){
+        Real inEta = 1.5; // default is glass
+        Real outEta = 1.0; // default is air
+        for (auto child : node.children()) {
+            std::string name = child.attribute("name").value();
+            if (name == "intIOR") {
+                inEta = parse_float(child.attribute("value").value(), default_map);
+            } else if (name == "extIOR") {
+                outEta = parse_float(child.attribute("value").value(), default_map);
+            }
+        }
+        return std::make_tuple(id, ParsedDielectric{inEta, outEta});
     } else {
         Error(std::string("Unknown BSDF: ") + type);
     }

@@ -51,12 +51,18 @@ struct ParsedBlinnPhongMicrofacet {
     Real exponent; // alpha
 };
 
+struct ParsedDielectric {
+    Real inEta; // inside
+    Real outEta; // outside (probably air)
+};
+
 using ParsedMaterial = std::variant<ParsedDiffuse,
                                     ParsedMirror,
                                     ParsedPlastic,
                                     ParsedPhong,
                                     ParsedBlinnPhong,
-                                    ParsedBlinnPhongMicrofacet>;
+                                    ParsedBlinnPhongMicrofacet,
+                                    ParsedDielectric>;
 
 struct ParsedPointLight {
     Vector3 position;

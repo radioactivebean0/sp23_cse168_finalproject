@@ -7,6 +7,7 @@
 enum material_e {
     DiffuseType,
     MirrorType,
+    DielectricType,
     PlasticType,
     PhongType,
     BlinnPhongType,
@@ -28,8 +29,8 @@ using Texture = std::variant<SolidTexture, ImgTexture>;
 
 struct Material {
     Texture reflectance;
-    Real ref_index;
-    Real exponent;
+    Real ref_index; // ineta for dielectrics
+    Real exponent; // outeta for dielectrics
     material_e material_type;
 };
 
