@@ -675,21 +675,27 @@ Vector3 brdf_sample(const Scene &scene, const Vector3 &ray, const material_e mat
         specular = 1;
         return ray - 2.0*dot(ray, gn)*gn;
     } else if (mat == material_e::DielectricType){
-        specular = 2;
         const Real inIR = scene.materials.at(mat_id).ref_index;
         const Real outIR = scene.materials.at(mat_id).exponent;
-        Real ref_ratio = (dot(ray,sn) < 0.0) ? outIR/inIR : inIR/outIR; // depends if ray points in or out
-        const Real cos_theta = fmin(dot(-ray, sn), 1.0);
+        Vector3 n = sn;
+        Real cos_theta = fmin(dot(-ray, sn), 1.0);
+        Real ref_ratio = (cos_theta > 0.0) ? outIR/inIR : inIR/outIR; // depends if ray points in or out
+        if (cos_theta < 0.0){ // ray inside
+            cos_theta = -cos_theta;
+            //ref_ratio = outIR/inIR;
+            n = -n;
+        }
         Real sin_theta = sqrt(Real(1.0) - cos_theta*cos_theta);
-
         Vector3 direction;
-        Real schlick_fresnel = pow((outIR-inIR)/(outIR+inIR), 2.0);
+        Real schlick_fresnel = pow((ref_ratio-1.0)/(ref_ratio+1.0), 2.0);
         schlick_fresnel = schlick_fresnel + (1.0-schlick_fresnel)*pow(1.0-cos_theta, 5);
         if (ref_ratio* sin_theta > 1.0 || schlick_fresnel > next_pcg32_real<Real>(pcg_state)){ // reflect
-            direction = ray - 2.0*dot(ray,sn)*sn;
+            specular = 2;
+            direction = ray - 2.0*dot(ray,n)*n;
         } else { // refract
-            Vector3 r_out_perp = ref_ratio * (ray + cos_theta*sn);
-            Vector3 r_out_parallel = -sqrt(fabs(1.0 - length_squared(r_out_perp))) * sn;
+            specular = 3;
+            Vector3 r_out_perp = ref_ratio * (ray + cos_theta*n);
+            Vector3 r_out_parallel = -sqrt(fabs(1.0 - length_squared(r_out_perp))) * n;
             direction = r_out_perp + r_out_parallel;
         }
         return direction;
@@ -968,6 +974,8 @@ Vector3 mis_path_trace(const Scene &scene, const Vector3 &ray, const Vector3 &ra
             return emission + (kd + (1.0-kd)* pow((1.0 - dot(gn,omeganot)), 5))*mis_path_trace(scene, omeganot, pt, pcg_state, max_depth-1);
         } else if (spec==2) { // dielectric
             return emission + mis_path_trace(scene, omeganot, pt, pcg_state, max_depth-1);
+        } else if (spec==3) { // refracting dielectric
+            return emission + mis_path_trace(scene, omeganot, pt+(ray*eps), pcg_state, max_depth-1); // move by epsilon avoid moire patterns
         } else {
             Vector3 val;
             Real brdfpdf;
