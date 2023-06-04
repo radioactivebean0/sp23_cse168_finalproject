@@ -26,6 +26,7 @@ set(SRCS src/3rdparty/miniz.h
          src/3rdparty/stb_image.h
          src/3rdparty/tinyexr.h
          src/3rdparty/tinyply.h
+         src/sampling.h
          src/compute_normals.h
          src/camera.h
          src/camera.cpp
@@ -52,6 +53,12 @@ set(SRCS src/3rdparty/miniz.h
          src/scene.h
          src/scene.cpp
          src/image.cpp
+         src/mis.h
+         src/mis.cpp
+         src/next_event.h
+         src/next_event.cpp
+         src/path_trace.h
+         src/path_trace.cpp
          src/render.h
          src/render.cpp
          src/main.cpp
