@@ -1,6 +1,8 @@
 #include "path_trace.h"
 #include "bvh.h"
 #include "sampling.h"
+#include "ortho_basis.h"
+
 
 Vector3 path_trace(const Scene &scene, const Vector3 &ray, const Vector3 &ray_origin, pcg32_state &pcg_state, int max_depth){
     if (max_depth == 0){return Vector3{0.0,0.0,0.0};}
@@ -35,9 +37,8 @@ Vector3 path_trace(const Scene &scene, const Vector3 &ray, const Vector3 &ray_or
             }
             // calc uv
             Vector2 uvt = triangle_uv(tri, uv);
-            Vector3 p0 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).x);
-            Vector3 p1 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).y);
-            Vector3 p2 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).z);
+            Vector3 p0, p1, p2;
+            triangle_points(tri, p0, p1, p2);
             gn = normalize(cross(p1 - p0, p2 - p1));
             // shading normals
             sn = shading_norm(tri, uv);
@@ -66,13 +67,7 @@ Vector3 path_trace(const Scene &scene, const Vector3 &ray, const Vector3 &ray_or
                 return emission + path_trace(scene, ray_reflect, pt, pcg_state, max_depth-1);
             } else {
                 Vector3 scatter = rand_cos(pcg_state);
-                Vector3 a = Vector3{1.0,0.0,0.0};
-                if (abs(gn.x) > 0.9){
-                    a = Vector3{0.0,1.0,0.0};
-                }
-                Vector3 t = normalize(cross(a,gn));
-                Vector3 s = cross(t,gn);
-                Vector3 bounce = scatter.x*s + scatter.y*t + scatter.z*gn;
+                Vector3 bounce = ortho_basis(scatter, gn);
                 Real nwo = dot(sn,bounce);
                 if (nwo < 0.0){
                     return emission;
@@ -81,15 +76,9 @@ Vector3 path_trace(const Scene &scene, const Vector3 &ray, const Vector3 &ray_or
             }
         } else if (mat == material_e::PhongType) { // phong material
             const Vector3 ray_reflect = ray - 2.0*dot(ray, sn)*sn;
-            Real exponent = scene.materials.at(mat_id).exponent;
+            const Real exponent = scene.materials.at(mat_id).exponent;
             Vector3 scatter = rand_phong_cos(pcg_state, exponent);
-            Vector3 a = Vector3{1.0,0.0,0.0};
-            if (abs(ray_reflect.x) > 0.9){
-                a = Vector3{0.0,1.0,0.0};
-            }
-            Vector3 t = normalize(cross(a,ray_reflect));
-            Vector3 s = cross(t,ray_reflect);
-            Vector3 omeganot = scatter.x*s + scatter.y*t + scatter.z*ray_reflect;
+            Vector3 omeganot = ortho_basis(scatter, ray_reflect);
             Real nwo = dot(sn, omeganot);
             if (nwo < 0.0){
                 return emission;
@@ -103,13 +92,7 @@ Vector3 path_trace(const Scene &scene, const Vector3 &ray, const Vector3 &ray_or
         } else if (mat == material_e::BlinnPhongType){ // blinn phong
             Real exponent = scene.materials.at(mat_id).exponent;
             Vector3 scatter = rand_phong_cos(pcg_state, exponent);
-            Vector3 a = Vector3{1.0,0.0,0.0};
-            if (abs(sn.x) > 0.9){
-                a = Vector3{0.0,1.0,0.0};
-            }
-            Vector3 t = normalize(cross(a,sn));
-            Vector3 s = cross(t,sn);
-            Vector3 halfvec = scatter.x*s + scatter.y*t + scatter.z*sn;
+            Vector3 halfvec = ortho_basis(scatter, sn);
             Vector3 omeganot = ray - 2.0*dot(ray, halfvec)*halfvec;
             if (dot(sn,omeganot)<0.0){
                 return emission;
@@ -121,13 +104,7 @@ Vector3 path_trace(const Scene &scene, const Vector3 &ray, const Vector3 &ray_or
         } else if (mat == material_e::BlinnPhongMicrofacetType){
             Real exponent = scene.materials.at(mat_id).exponent;
             Vector3 scatter = rand_phong_cos(pcg_state, exponent);
-            Vector3 a = Vector3{1.0,0.0,0.0};
-            if (abs(sn.x) > 0.9){
-                a = Vector3{0.0,1.0,0.0};
-            }
-            Vector3 t = normalize(cross(a,sn));
-            Vector3 s = cross(t,sn);
-            Vector3 halfvec = scatter.x*s + scatter.y*t + scatter.z*sn;
+            Vector3 halfvec = ortho_basis(scatter, sn);
             Vector3 omeganot = ray - 2.0*dot(ray, halfvec)*halfvec;
             if (dot(sn,omeganot)<0.0){
                 return emission;
@@ -154,13 +131,7 @@ Vector3 path_trace(const Scene &scene, const Vector3 &ray, const Vector3 &ray_or
             return emission + (fh*d*G)/(4*dot(sn,-ray)) *path_trace(scene, omeganot, pt, pcg_state, max_depth-1)/pdf;
         } else {        // scattering, cosine hemisphere sampling and diffuse
             Vector3 scatter = rand_cos(pcg_state);
-            Vector3 a = Vector3{1.0,0.0,0.0};
-            if (abs(gn.x) > 0.9){
-                a = Vector3{0.0,1.0,0.0};
-            }
-            Vector3 t = normalize(cross(a,gn));
-            Vector3 s = cross(t,gn);
-            Vector3 bounce = scatter.x*s + scatter.y*t + scatter.z*gn;
+            Vector3 bounce = ortho_basis(scatter, gn);
             Real nwo = dot(sn,bounce);
             if (nwo < 0.0){
                 return emission;

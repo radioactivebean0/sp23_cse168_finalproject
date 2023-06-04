@@ -61,6 +61,7 @@ struct WideAABB {
 Vector2 sphere_uv(const Sphere* sphere, const Vector3 &pt);
 Vector2 triangle_uv(const Triangle* triangle, const Vector2 &uv);
 Vector3 shading_norm(const Triangle* tri, const Vector2 &uv);
+void triangle_points(const Triangle* tri, Vector3 &p0, Vector3 &p1, Vector3 &p2);
 
 double hit_sphere(const Sphere & sphere, const Vector3 &ray, const Vector3 &origin);
 double get_tri_intersect(const Vector3 &p0, const Vector3 &p1, const Vector3 &p2, const Vector3 &ray, const Vector3 &lookfrom, const Real eps, Vector2 &uv);

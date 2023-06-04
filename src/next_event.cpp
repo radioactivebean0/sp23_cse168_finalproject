@@ -61,9 +61,8 @@ Vector3 get_diffuse_color_v2(const Scene &scene, const Vector3 &pt, const Real e
                     }
                 }
             } else if (auto *tri = std::get_if<Triangle>(&scene.shapes.at(alight->shape_idx))){
-                Vector3 p0 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).x);
-                Vector3 p1 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).y);
-                Vector3 p2 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).z);
+                Vector3 p0, p1, p2;
+                triangle_points(tri, p0, p1, p2);
                 Real u1 = next_pcg32_real<double>(pcg_state);
                 Real u2 = next_pcg32_real<double>(pcg_state);
                 Real b1 = 1 - sqrt(u1);

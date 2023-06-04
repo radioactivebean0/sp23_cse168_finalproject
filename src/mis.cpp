@@ -1,6 +1,7 @@
 #include "mis.h"
 #include "bvh.h"
 #include "sampling.h"
+#include "ortho_basis.h"
 
 // returning pdf of -1.0 means pure specular
 Vector3 brdf_sample(const Scene &scene, const Vector3 &ray, const material_e mat, const int mat_id, const Vector3 &sn, const Vector3 &gn, pcg32_state &pcg_state, int &specular){
@@ -41,13 +42,7 @@ Vector3 brdf_sample(const Scene &scene, const Vector3 &ray, const material_e mat
             return ray_reflect;
         } else {
             Vector3 scatter = rand_cos(pcg_state);
-            Vector3 a = Vector3{1.0,0.0,0.0};
-            if (abs(gn.x) > 0.9){
-                a = Vector3{0.0,1.0,0.0};
-            }
-            Vector3 t = normalize(cross(a,gn));
-            Vector3 s = cross(t,gn);
-            Vector3 bounce = scatter.x*s + scatter.y*t + scatter.z*gn;
+            Vector3 bounce = ortho_basis(scatter, gn);
             specular = 0;
             return bounce;
         }
@@ -55,50 +50,26 @@ Vector3 brdf_sample(const Scene &scene, const Vector3 &ray, const material_e mat
         const Vector3 ray_reflect = ray - 2.0*dot(ray, sn)*sn;
         Real exponent = scene.materials.at(mat_id).exponent;
         Vector3 scatter = rand_phong_cos(pcg_state, exponent);
-        Vector3 a = Vector3{1.0,0.0,0.0};
-        if (abs(ray_reflect.x) > 0.9){
-            a = Vector3{0.0,1.0,0.0};
-        }
-        Vector3 t = normalize(cross(a,ray_reflect));
-        Vector3 s = cross(t,ray_reflect);
-        Vector3 omeganot = scatter.x*s + scatter.y*t + scatter.z*ray_reflect;
+        Vector3 omeganot = ortho_basis(scatter, ray_reflect);
         specular = 0;
         return omeganot;
     } else if (mat == material_e::BlinnPhongType){ // blinn phong
         Real exponent = scene.materials.at(mat_id).exponent;
         Vector3 scatter = rand_phong_cos(pcg_state, exponent);
-        Vector3 a = Vector3{1.0,0.0,0.0};
-        if (abs(sn.x) > 0.9){
-            a = Vector3{0.0,1.0,0.0};
-        }
-        Vector3 t = normalize(cross(a,sn));
-        Vector3 s = cross(t,sn);
-        Vector3 halfvec = scatter.x*s + scatter.y*t + scatter.z*sn;
+        Vector3 halfvec = ortho_basis(scatter, sn);
         specular = 0;
         Vector3 omeganot = ray - 2.0*dot(ray, halfvec)*halfvec;
         return omeganot;
     } else if (mat == material_e::BlinnPhongMicrofacetType){
         Real exponent = scene.materials.at(mat_id).exponent;
         Vector3 scatter = rand_phong_cos(pcg_state, exponent);
-        Vector3 a = Vector3{1.0,0.0,0.0};
-        if (abs(sn.x) > 0.9){
-            a = Vector3{0.0,1.0,0.0};
-        }
-        Vector3 t = normalize(cross(a,sn));
-        Vector3 s = cross(t,sn);
-        Vector3 halfvec = scatter.x*s + scatter.y*t + scatter.z*sn;
+        Vector3 halfvec = ortho_basis(scatter, sn);
         specular = 0;
         Vector3 omeganot = ray - 2.0*dot(ray, halfvec)*halfvec;
         return omeganot;
     } else {        // scattering, cosine hemisphere sampling and diffuse
         Vector3 scatter = rand_cos(pcg_state);
-        Vector3 a = Vector3{1.0,0.0,0.0};
-        if (abs(gn.x) > 0.9){
-            a = Vector3{0.0,1.0,0.0};
-        }
-        Vector3 t = normalize(cross(a,gn));
-        Vector3 s = cross(t,gn);
-        Vector3 bounce = scatter.x*s + scatter.y*t + scatter.z*gn;
+        Vector3 bounce = ortho_basis(scatter, gn);
         specular = 0;
         return bounce;
     }
@@ -186,9 +157,8 @@ Vector3 light_sample(const Scene &scene, const Vector3 &ray, const Vector3 &pt, 
             light_ray = normalize(pt-light_pos);
             return -light_ray;
         } else if (auto *tri = std::get_if<Triangle>(&scene.shapes.at(alight->shape_idx))){
-            Vector3 p0 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).x);
-            Vector3 p1 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).y);
-            Vector3 p2 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).z);
+            Vector3 p0, p1, p2;
+            triangle_points(tri, p0, p1, p2);
             Real u1 = next_pcg32_real<double>(pcg_state);
             Real u2 = next_pcg32_real<double>(pcg_state);
             Real b1 = 1 - sqrt(u1);
@@ -226,9 +196,8 @@ Real light_pdf(const Scene &scene, const Vector3 &omeganot, const Vector3 &pt){
                     continue;
                 }
             } else if (auto *tri = std::get_if<Triangle>(&scene.shapes.at(alight->shape_idx))){
-                Vector3 p0 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).x);
-                Vector3 p1 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).y);
-                Vector3 p2 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).z);
+                Vector3 p0, p1, p2;
+                triangle_points(tri, p0, p1, p2);
                 Real t_shadow = get_tri_intersect(p0, p1, p2, omeganot, pt, eps, uv);
                 if (t_shadow > 0.0){
                     Vector3 hit_pt = pt + t_shadow*omeganot;
@@ -281,9 +250,8 @@ Vector3 mis_path_trace(const Scene &scene, const Vector3 &ray, const Vector3 &ra
             }
             // calc uv
             Vector2 uvt = triangle_uv(tri, uv);
-            Vector3 p0 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).x);
-            Vector3 p1 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).y);
-            Vector3 p2 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).z);
+            Vector3 p0, p1, p2;
+            triangle_points(tri, p0, p1, p2);
             gn = normalize(cross(p1 - p0, p2 - p1));
             // shading normals
             sn = shading_norm(tri, uv);

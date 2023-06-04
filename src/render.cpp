@@ -11,15 +11,8 @@
 
 #include <stdlib.h>
 
-Image3 multiple_importance(Scene &scene, int max_depth){
-    const int spp = scene.samples_per_pixel;
+void multiple_importance(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const int num_tiles_y, const int tile_size, const int w, const int h, const int spp){
     const Real real_spp = Real(spp);
-    Image3 img(scene.width, scene.height);
-    const int w = img.width;
-    const int h = img.height;
-    constexpr int tile_size = 16;
-    const int num_tiles_x = (w + tile_size - 1) / tile_size;
-    const int num_tiles_y = (h + tile_size - 1) / tile_size;
     ProgressReporter reporter(num_tiles_x * num_tiles_y);
     parallel_for([&](const Vector2i &tile) {
         pcg32_state pcg_state = init_pcg32(tile[1] * num_tiles_x + tile[0]);
@@ -42,21 +35,12 @@ Image3 multiple_importance(Scene &scene, int max_depth){
         reporter.update(1);
     }, Vector2i(num_tiles_x, num_tiles_y));
     reporter.done();
-    return img;
 }
 
 
-Image3 next_event(Scene &scene){
-    const int spp = scene.samples_per_pixel;
-    const Real eps = 0.00000001;
+void next_event(Scene &scene, Image3 &img, const int num_tiles_x, const int num_tiles_y, const int tile_size, const int w, const int h, const int spp){
     const Real real_spp = Real(spp);
-    Image3 img(scene.width, scene.height);
-    const int w = img.width;
-    const int h = img.height;
-    constexpr int tile_size = 16;
-    const int num_tiles_x = (w + tile_size - 1) / tile_size;
-    const int num_tiles_y = (h + tile_size - 1) / tile_size;
-    std::cout << sizeof(compact_AABB) << std::endl;
+    const Real eps = 0.00000001;
     ProgressReporter reporter(num_tiles_x * num_tiles_y);
     parallel_for([&](const Vector2i &tile) {
         pcg32_state pcg_state = init_pcg32(tile[1] * num_tiles_x + tile[0]);
@@ -90,18 +74,10 @@ Image3 next_event(Scene &scene){
         reporter.update(1);
     }, Vector2i(num_tiles_x, num_tiles_y));
     reporter.done();
-    return img;
 }
 
-Image3 path(Scene &scene, int max_depth){
-    const int spp = scene.samples_per_pixel;
+void path(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const int num_tiles_y, const int tile_size, const int w, const int h, const int spp){
     const Real real_spp = Real(spp);
-    Image3 img(scene.width, scene.height);
-    const int w = img.width;
-    const int h = img.height;
-    constexpr int tile_size = 16;
-    const int num_tiles_x = (w + tile_size - 1) / tile_size;
-    const int num_tiles_y = (h + tile_size - 1) / tile_size;
     ProgressReporter reporter(num_tiles_x * num_tiles_y);
     parallel_for([&](const Vector2i &tile) {
         pcg32_state pcg_state = init_pcg32(tile[1] * num_tiles_x + tile[0]);
@@ -125,7 +101,6 @@ Image3 path(Scene &scene, int max_depth){
         reporter.update(1);
     }, Vector2i(num_tiles_x, num_tiles_y));
     reporter.done();
-    return img;
 }
 
 
@@ -162,17 +137,23 @@ Image3 render_img(const std::vector<std::string> &params) {
     flatten_bvh(scene.bvh, scene.cbvh, &offset);
     std::cout << "BVH construction done. Took " << tick(timer) << " seconds." << std::endl;
     tick(timer);
-    Image3 ret;
+    const int spp = scene.samples_per_pixel;
+    Image3 img(scene.width, scene.height);
+    const int w = img.width;
+    const int h = img.height;
+    constexpr int tile_size = 16;
+    const int num_tiles_x = (w + tile_size - 1) / tile_size;
+    const int num_tiles_y = (h + tile_size - 1) / tile_size;
     if (renderer=="mis") {
-        ret = multiple_importance(scene, max_depth);
+        multiple_importance(scene, img, max_depth, num_tiles_x, num_tiles_y, tile_size, w, h, spp);
     } else if (renderer == "nee"){
-        ret = next_event(scene);
+        next_event(scene, img, num_tiles_x, num_tiles_y, tile_size, w, h, spp);
     } else if (renderer == "path"){
-        ret = path(scene, max_depth);
+        path(scene, img, max_depth, num_tiles_x, num_tiles_y, tile_size, w, h, spp);
     } else {
         assert("unsupported render method");
     }
     std::cout << "Scene image render done. Took " << tick(timer) << " seconds." << std::endl;
     free(scene.cbvh);
-    return ret;
+    return img;
 }

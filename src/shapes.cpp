@@ -107,3 +107,9 @@ Vector3 shading_norm(const Triangle* tri, const Vector2 &uv){
         return normalize((1.0- uv.x - uv.y)*n0 + uv.x*n1 + uv.y * n2);
     }
 }
+
+void triangle_points(const Triangle* tri, Vector3 &p0, Vector3 &p1, Vector3 &p2){
+    p0 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).x);
+    p1 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).y);
+    p2 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).z);
+}

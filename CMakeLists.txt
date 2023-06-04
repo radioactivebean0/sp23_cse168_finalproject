@@ -28,6 +28,7 @@ set(SRCS src/3rdparty/miniz.h
          src/3rdparty/tinyply.h
          src/sampling.h
          src/compute_normals.h
+         src/ortho_basis.h
          src/camera.h
          src/camera.cpp
          src/materials.h
