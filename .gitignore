@@ -40,6 +40,18 @@ build/
 __pycache__/
 
 # Everything in the scene folder
-scenes/
+scenes/*
+scenes/cbox/*
+scenes/cbox/meshes/*
+# push the new scenes and assets
+!scenes/cbox
+!scenes/cbox/meshes
+!scenes/cbox/meshes/models
+!scenes/cbox/meshes/models/Mesh000.obj
+!scenes/cbox/meshes/models/Mesh001.obj
+!scenes/cbox/cbox_area_light_dielectric.xml
+!scenes/cbox/cbox_area_light_dielectric_bricks.xml
+!scenes/cbox/cbox_water_caustic.xml
+!scenes/cbox/cbox_water_large_light.xml
 
 .DS_Store
