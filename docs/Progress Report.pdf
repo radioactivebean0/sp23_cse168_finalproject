@@ -1,0 +1,1 @@
+journalctl -xe NM_CONNECTION=5d1582d7-6b00-441a-980f-833a0bc4fc9a + NM_DEVICE=eno3
