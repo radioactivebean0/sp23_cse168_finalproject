@@ -18,11 +18,11 @@ Camera from_parsed_camera(const ParsedCamera &camera){
         .lookat= camera.lookat,
         .up= camera.up,
         .vfov= camera.vfov,
+        .llc=llc,
+        .horizontal=horizontal,
+        .vertical=vertical,
         .width= camera.width,
         .height= camera.height,
-        .vertical=vertical,
-        .horizontal=horizontal,
-        .llc=llc
     };
 }
 
