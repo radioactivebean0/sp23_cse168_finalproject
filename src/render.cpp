@@ -8,6 +8,7 @@
 #include "mis.h"
 #include "next_event.h"
 #include "path_trace.h"
+#include "ppm.h"
 
 #include <stdlib.h>
 
@@ -103,6 +104,51 @@ void path(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const
     reporter.done();
 }
 
+void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const int num_tiles_y, const int tile_size, const int w, const int h, const int spp, const long photon_count, const Real alpha, const int passes){
+    const Real real_spp = Real(spp);
+    // STEP 1: Trace rays into the scene and get hit points
+    PPMGrid ppm_pixels(w,h,spp);
+    parallel_for([&](const Vector2i &tile) {
+        pcg32_state pcg_state = init_pcg32(tile[1] * num_tiles_x + tile[0]);
+        const int x0 = tile[0] * tile_size;
+        const int x1 = min(x0 + tile_size, w);
+        const int y0 = tile[1] * tile_size;
+        const int y1 = min(y0 + tile_size, h);
+        int x, y, sample;
+        Vector3 ray;
+        for (y = y0; y < y1; ++y){
+            for (x = x0; x < x1; ++x){
+                for (sample = 0; sample < spp; ++sample){
+                    ray = get_ray(scene.camera, x, y, pcg_state);
+                    ppm_pixels(x,y).push_back(generate_visible_point(scene, ray, pcg_state, max_depth));
+                }
+            }
+        }
+    }, Vector2i(num_tiles_x, num_tiles_y));
+
+    for (int pass = 0; pass < passes; pass++){
+        // TODO
+        // STEP 2: Trace photons into the scene
+        for (int photon = 0; photon < photon_count; photon++){ // TODO: also parallelize
+            // uniform sample and choose a light source
+
+            // sample ray from the light source
+            for (int depth = 0; depth < max_depth; depth++){
+                // intersect the ray with scene
+
+                // put photon into the kd tree
+
+                // calculate bounce if any
+            }
+        }
+
+        // TODO
+        // STEP 3: Gather photons for the hit points
+
+        // TODO
+        // STEP 4: Adjust the radius of the visible points, discard all photons and repeat
+    }
+}
 
 Image3 render_img(const std::vector<std::string> &params) {
     

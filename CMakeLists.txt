@@ -60,6 +60,8 @@ set(SRCS src/3rdparty/miniz.h
          src/next_event.cpp
          src/path_trace.h
          src/path_trace.cpp
+         src/ppm.h
+         src/ppm.cpp
          src/render.h
          src/render.cpp
          src/main.cpp
