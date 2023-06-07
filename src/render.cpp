@@ -104,7 +104,7 @@ void path(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const
     reporter.done();
 }
 
-void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const int num_tiles_y, const int tile_size, const int w, const int h, const int spp, const long photon_count, const Real alpha, const int passes){
+void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const int num_tiles_y, const int tile_size, const int w, const int h, const int spp, const long photon_count, const Real alpha, const int passes, const Real default_radius){
     const Real real_spp = Real(spp);
     // STEP 1: Trace rays into the scene and get hit points
     PPMGrid ppm_pixels(w,h,spp);
@@ -120,7 +120,7 @@ void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const 
             for (x = x0; x < x1; ++x){
                 for (sample = 0; sample < spp; ++sample){
                     ray = get_ray(scene.camera, x, y, pcg_state);
-                    ppm_pixels(x,y).push_back(generate_visible_point(scene, ray, pcg_state, max_depth));
+                    ppm_pixels(x,y).push_back(generate_visible_point(scene, ray, pcg_state, max_depth, default_radius));
                 }
             }
         }

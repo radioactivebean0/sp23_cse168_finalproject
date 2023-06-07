@@ -7,6 +7,7 @@ struct PPMHitPoint {
     Vector3 position;
     Vector3 normal;
     Vector3 omeganot;
+    Vector3 emission;
     Vector3 beta; // throughput of the color multiplied over the bounces
     Real r; // photon radius
     long n; // photon count accumulated
@@ -36,4 +37,4 @@ struct PPMGrid {
 };
 
 // TODO: trace a ray from the camera to the scene to get visible point
-PPMHitPoint generate_visible_point(const Scene &scene, const Vector3 &ray, pcg32_state &pcg_state, int max_depth);
+PPMHitPoint generate_visible_point(const Scene &scene, const Vector3 &ray, pcg32_state &pcg_state, int max_depth, const Real default_radius);
