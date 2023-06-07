@@ -7,6 +7,7 @@
 - Fix CLI bug or document it and call it a feature
 - More skeleton
 - Fix compile error with GCC
+- Update readme
 
 ## Goal
 
