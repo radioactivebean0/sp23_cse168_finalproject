@@ -55,3 +55,6 @@ scenes/cbox/meshes/*
 !scenes/cbox/cbox_water_large_light.xml
 
 .DS_Store
+
+# clangd cache
+/.cache

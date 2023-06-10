@@ -15,6 +15,11 @@ cmake ..
 ```
 It requires compilers that support C++17 (gcc version >= 8, clang version >= 7, Apple Clang version >= 11.0, MSVC version >= 19.14).
 
+To use Helix editor and language server support on Rocky 9:
+- Install `clang-tools-extra` for `clangd`
+- Install `bear` for generating build commands
+- `bear -- make` after `cmake ..` in `build`
+
 # Scenes
 You should also download the scenes we will use in later homeworks from the following Google drive link: 
 [https://drive.google.com/file/d/1SrGaw6AbyfhPs1NAuRjxSEQmf34DPKhm/view?usp=sharing](https://drive.google.com/file/d/1SrGaw6AbyfhPs1NAuRjxSEQmf34DPKhm/view?usp=sharing).
