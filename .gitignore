@@ -56,4 +56,7 @@ scenes/*
 .DS_Store
 
 # clangd cache
-/.cache
+/.cache/
+
+# development folder
+/dev/
