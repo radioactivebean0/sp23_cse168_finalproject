@@ -9,6 +9,7 @@
 #include "next_event.h"
 #include "path_trace.h"
 #include "ppm.h"
+#include "3rdparty/nanoflann.hpp"
 
 #include <stdlib.h>
 
@@ -104,6 +105,43 @@ void path(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const
     reporter.done();
 }
 
+// TODO clean this up and move elsewhere
+struct PointCloud {
+    struct Point {
+        Real x, y, z;
+    };
+
+    using coord_t = Real;  //!< The type of each coordinate
+
+    std::vector<Point> pts;
+
+    // Must return the number of data points
+    inline size_t kdtree_get_point_count() const { return pts.size(); }
+
+    // Returns the dim'th component of the idx'th point in the class:
+    // Since this is inlined and the "dim" argument is typically an immediate
+    // value, the
+    //  "if/else's" are actually solved at compile time.
+    inline Real kdtree_get_pt(const size_t idx, const size_t dim) const {
+        if (dim == 0)
+            return pts[idx].x;
+        else if (dim == 1)
+            return pts[idx].y;
+        else
+            return pts[idx].z;
+    }
+
+    // Optional bounding-box computation: return false to default to a standard
+    // bbox computation loop.
+    //   Return true if the BBOX was already computed by the class and returned
+    //   in "bb" so it can be avoided to redo it again. Look at bb.size() to
+    //   find out the expected dimensionality (e.g. 2 or 3 for point clouds)
+    template<class BBOX>
+    bool kdtree_get_bbox(BBOX& /* bb */) const {
+        return false;
+    }
+};
+
 void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const int num_tiles_y, const int tile_size, const int w, const int h, const int spp, const long photon_count, const Real alpha, const int passes, const Real default_radius){
     const Real real_spp = Real(spp);
     // STEP 1: Trace rays into the scene and get hit points
@@ -125,6 +163,47 @@ void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const 
             }
         }
     }, Vector2i(num_tiles_x, num_tiles_y));
+
+    // TODO remove this kd tree test code
+
+    {
+        auto n = 100000;
+        using std::cout;
+        using std::endl;
+
+        PointCloud cloud;
+        cloud.pts.resize(n);
+        for (size_t i = 0; i < n; i++) {
+            cloud.pts[i].x = 10 * (rand() % 1000) / Real(1000);
+            cloud.pts[i].y = 10 * (rand() % 1000) / Real(1000);
+            cloud.pts[i].z = 10 * (rand() % 1000) / Real(1000);
+        }
+
+        // construct a kd-tree index:
+        using my_kd_tree_t = nanoflann::KDTreeSingleIndexAdaptor<
+            nanoflann::L2_Simple_Adaptor<Real, PointCloud>,
+            PointCloud, 3 /* dim */
+        >;
+
+        my_kd_tree_t index(3 /*dim*/, cloud, {10 /* max leaf */});
+
+        const Real query_pt[3] = {0.5, 0.5, 0.5};
+        const Real search_radius = static_cast<Real>(0.1);
+        std::vector<nanoflann::ResultItem<uint32_t, Real>> ret_matches;
+
+        // nanoflanSearchParamsameters params;
+        // params.sorted = false;
+
+        const size_t nMatches =
+            index.radiusSearch(&query_pt[0], search_radius, ret_matches);
+
+        cout << "radiusSearch(): radius=" << search_radius << " -> " << nMatches
+             << " matches\n";
+        for (size_t i = 0; i < nMatches; i++)
+            cout << "idx[" << i << "]=" << ret_matches[i].first << " dist[" << i
+                 << "]=" << ret_matches[i].second << endl;
+        cout << "\n";
+    }
 
     for (int pass = 0; pass < passes; pass++){
         // TODO
@@ -196,6 +275,24 @@ Image3 render_img(const std::vector<std::string> &params) {
         next_event(scene, img, num_tiles_x, num_tiles_y, tile_size, w, h, spp);
     } else if (renderer == "path"){
         path(scene, img, max_depth, num_tiles_x, num_tiles_y, tile_size, w, h, spp);
+    } else if (renderer == "ppm") {
+        ppm(
+            scene,
+            img,
+            max_depth,
+            num_tiles_x,
+            num_tiles_y,
+            tile_size,
+            w,
+            h,
+            spp,
+            // FIXME use values that actually make sense
+            // const long photon_count, const Real alpha, const int passes, const Real default_radius);
+            10,
+            10,
+            2,
+            0.1
+        );
     } else {
         assert("unsupported render method");
     }

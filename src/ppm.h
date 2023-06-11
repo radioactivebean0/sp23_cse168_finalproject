@@ -1,7 +1,6 @@
 #pragma once
 #include "scene.h"
 
-
 // stores a hitpoint, not final maybe need more or less fields
 struct PPMHitPoint {
     Vector3 position;
@@ -37,4 +36,10 @@ struct PPMGrid {
 };
 
 // TODO: trace a ray from the camera to the scene to get visible point
-PPMHitPoint generate_visible_point(const Scene &scene, const Vector3 &ray, pcg32_state &pcg_state, int max_depth, const Real default_radius);
+PPMHitPoint generate_visible_point(
+    const Scene &scene,
+    const Vector3 &ray,
+    pcg32_state &pcg_state,
+    int max_depth,
+    const Real default_radius
+);
