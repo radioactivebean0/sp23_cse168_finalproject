@@ -113,3 +113,56 @@ void triangle_points(const Triangle* tri, Vector3 &p0, Vector3 &p1, Vector3 &p2)
     p1 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).y);
     p2 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).z);
 }
+
+Vector3 sample_shape_point(const Shape* shape, pcg32_state &pcg_state, Vector3 &norm){
+    if (auto *sph = std::get_if<Sphere>(shape)){
+        Real theta = acos(1.0-(2.0*next_pcg32_real<double>(pcg_state)));
+        Real phi = c_TWOPI * next_pcg32_real<double>(pcg_state);
+        Vector3 pt = sph->center + Vector3{sph->radius*sin(theta)*cos(phi), sph->radius*sin(theta)*sin(phi),sph->radius*cos(theta)};
+        norm = (pt - sph->center) / sph->radius;
+        return pt;
+    } else if (auto *tri = std::get_if<Triangle>(shape)){
+        Vector3 p0, p1, p2;
+        triangle_points(tri, p0, p1, p2);
+        Real u1 = next_pcg32_real<double>(pcg_state);
+        Real u2 = next_pcg32_real<double>(pcg_state);
+        Real b1 = 1 - sqrt(u1);
+        Real b2 = u2 * sqrt(u1);
+        norm = shading_norm(tri, Vector2{b1,b2});
+        return (1-b1-b2)*p0 + b1*p1 + b2*p2;
+    } else {
+        assert(false);
+    }
+}
+
+int shape_matid(const Shape* shape){
+    if (auto *sph = std::get_if<Sphere>(shape)){
+        return sph->material_id;
+    } else if (auto *tri = std::get_if<Triangle>(shape)){
+        return tri->mesh->material_id;
+    } else {
+        assert(false);
+    }
+}
+Vector3 shape_shade_norm(const Shape* shape, const Vector3 &pt, const Vector2 &uv){
+    if (auto *sph = std::get_if<Sphere>(shape)){
+        return (pt - sph->center) / sph->radius;
+    } else if (auto *tri = std::get_if<Triangle>(shape)){
+        return shading_norm(tri, uv);
+    } else {
+        assert(false);
+    }
+}
+Vector3 shape_geo_norm(const Shape* shape, const Vector3 &pt, const Vector2 &uv){
+    if (auto *sph = std::get_if<Sphere>(shape)){
+        return (pt - sph->center) / sph->radius;
+    } else if (auto *tri = std::get_if<Triangle>(shape)){
+        Vector3i indices = tri->mesh->indices.at(tri->face_index);
+        Vector3 p0 = tri->mesh->positions.at(indices.x);
+        Vector3 p1 = tri->mesh->positions.at(indices.y);
+        Vector3 p2 = tri->mesh->positions.at(indices.z);
+        return normalize(cross(p1 - p0, p2 - p1));
+    } else {
+        assert(false);
+    }
+}

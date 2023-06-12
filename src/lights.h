@@ -14,3 +14,7 @@ struct AreaLight {
 };
 
 using Light = std::variant<PointLight, AreaLight>;
+
+inline Vector3 rgb_to_xyz(Vector3 &rgb){
+
+}

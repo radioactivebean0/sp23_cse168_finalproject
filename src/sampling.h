@@ -29,3 +29,11 @@ inline Vector3 rand_cos(pcg32_state &pcg_state){
 
     return Vector3{x, y, z};
 }
+
+inline Vector3 rand_uniform_sphere(pcg32_state &pcg_state){
+    Real r1 = next_pcg32_real<Real>(pcg_state);
+    Real r2 = next_pcg32_real<Real>(pcg_state);
+    return Vector3 {cos(c_TWOPI*r1)*2.0*sqrt(r2*(1.0-r2)),
+                    sin(c_TWOPI*r1)*2.0*sqrt(r2*(1.0-r2)),
+                    1.0 - 2.0*r2 };
+}
