@@ -129,7 +129,7 @@ Vector3 sample_shape_point(const Shape* shape, pcg32_state &pcg_state, Vector3 &
         Real b1 = 1 - sqrt(u1);
         Real b2 = u2 * sqrt(u1);
         norm = shading_norm(tri, Vector2{b1,b2});
-        return (1-b1-b2)*p0 + b1*p1 + b2*p2;
+        return (1.0-b1-b2)*p0 + b1*p1 + b2*p2;
     } else {
         assert(false);
     }

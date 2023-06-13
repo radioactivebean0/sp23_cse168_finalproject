@@ -59,7 +59,6 @@ void next_event(Scene &scene, Image3 &img, const int num_tiles_x, const int num_
         Shape *hs;
         for (y = y0; y < y1; ++y){
             for (x = x0; x < x1; ++x){
-                //std::cout << x << "," << y << std::endl;
                 color_sum = Vector3{0.0,0.0,0.0};
                 for (sample = 0; sample < spp; ++sample){
                     ray = get_ray(scene.camera, x, y, pcg_state);
@@ -93,7 +92,6 @@ void path(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const
         Vector3 color_sum, ray;
         for (y = y0; y < y1; ++y){
             for (x = x0; x < x1; ++x){
-                //std::cout << x << "," << y << std::endl;
                 color_sum = Vector3{0.0,0.0,0.0};
                 for (sample = 0; sample < spp; ++sample){
                     ray = get_ray(scene.camera, x, y, pcg_state);
@@ -201,9 +199,10 @@ Vector3 photon_color(Scene &scene, Shape *hs, const Vector3 &omegai, const Vecto
 }
 
 void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const int num_tiles_y, const int tile_size, const int w, const int h, const int spp, const long photon_count, const Real alpha, const int passes, const Real default_radius){
-    const Real real_spp = Real(spp);
     // STEP 1: Trace rays into the scene and get hit points
     PPMGrid ppm_pixels(w,h,spp);
+    ProgressReporter reporter(num_tiles_x * num_tiles_y);
+
     parallel_for([&](const Vector2i &tile) {
         pcg32_state pcg_state = init_pcg32(tile[1] * num_tiles_x + tile[0]);
         const int x0 = tile[0] * tile_size;
@@ -220,8 +219,9 @@ void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const 
                 }
             }
         }
+        reporter.update(1);
     }, Vector2i(num_tiles_x, num_tiles_y));
-
+    reporter.done();
     // TODO remove this kd tree test code
 
     {
@@ -271,14 +271,18 @@ void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const 
         long photon = 0;
         int lit;
         Vector3 photon_ori, photon_dir;
+        PointCloud cloud;
+        cloud.pts.resize(photon_count);
+        ProgressReporter reporter(photon_count);
+
         while(photon < photon_count){ // TODO: also parallelize, also probably move out of here
             // uniform sample and choose a light source
-            lit = next_pcg32_real<Real>(pcg_state)*scene.lights.size();
+            lit = next_pcg32_real<Real>(pcg_state) * scene.lights.size();
             // sample ray from light source
             Vector3 luminance;
             if (auto *alight = std::get_if<AreaLight>(&scene.lights.at(lit))){
                 Vector3 light_norm;
-                photon_ori = sample_shape_point(&scene.shapes.at(alight->shape_idx), pcg_state, light_norm);
+                photon_ori = sample_shape_point(&(scene.shapes.at(alight->shape_idx)), pcg_state, light_norm);
                 photon_dir = ortho_basis(rand_cos(pcg_state), light_norm);
                 luminance = dot(photon_dir, light_norm) * alight->radiance;
             } else if (auto *light = std::get_if<PointLight>(&scene.lights.at(lit))){
@@ -288,14 +292,20 @@ void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const 
             } else {
                 assert(false);
             }
-            Real t;
             Vector2 uv;
             Shape *hs;
             // intersect the ray with scene
             for (int depth = 0; depth < max_depth; depth++){
+                Real t = -1.0;
+
                 if (hit_cbvh(scene.cbvh, photon_dir, photon_ori, eps, eps, infinity<Real>(), &hs, t, uv)){ // was a hit
                     // put photon into the kd tree
                     Vector3 hit_pt = photon_ori + t*photon_dir;
+                    cloud.pts[photon].x = hit_pt.x;
+                    cloud.pts[photon].y = hit_pt.y;
+                    cloud.pts[photon].z = hit_pt.z;
+                    photon++;
+                    reporter.update(1);
                     // russian roulette, reference: https://www.pbr-book.org/3ed-2018/Light_Transport_III_Bidirectional_Methods/Stochastic_Progressive_Photon_Mapping#AccumulatingVisiblePoints
                     if (luminance.y < 0.25) {
                         if (next_pcg32_real<Real>(pcg_state) > luminance.y) {
@@ -309,17 +319,24 @@ void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const 
                     photon_ori = hit_pt;
                     luminance *= photon_color(scene, hs, photon_dir, hit_pt_cpy, uv);
                 } else { // ray goes away
-                    continue;
+                    break;
                 }
             }
         }
+        using my_kd_tree_t = nanoflann::KDTreeSingleIndexAdaptor<
+            nanoflann::L2_Simple_Adaptor<Real, PointCloud>,
+            PointCloud, 3 /* dim */
+        >;
 
+        my_kd_tree_t photon_tree(3 /*dim*/, cloud, {10 /* max leaf */});
+        reporter.done();
         // TODO
         // STEP 3: Gather photons for the hit points
 
         // TODO
         // STEP 4: Adjust the radius of the visible points, discard all photons and repeat
     }
+    return;
 }
 
 Image3 render_img(const std::vector<std::string> &params) {
@@ -372,7 +389,7 @@ Image3 render_img(const std::vector<std::string> &params) {
         ppm(
             scene,
             img,
-            max_depth,
+            10,
             num_tiles_x,
             num_tiles_y,
             tile_size,
@@ -381,9 +398,9 @@ Image3 render_img(const std::vector<std::string> &params) {
             spp,
             // FIXME use values that actually make sense
             // const long photon_count, const Real alpha, const int passes, const Real default_radius);
-            10,
-            10,
-            2,
+            50000,
+            0.7,
+            5,
             0.1
         );
     } else {

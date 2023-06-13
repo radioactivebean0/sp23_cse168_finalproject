@@ -16,6 +16,7 @@ PPMHitPoint generate_visible_point(const Scene &scene, const Vector3 &ray, pcg32
 
     while (depth < max_depth){
         if (hit_cbvh(scene.cbvh, current_ray, current_origin, eps, eps, infinity<Real>(), &hs, t_val, uv)){ // was a hit
+            //std::cout << "hit" << std::endl;
             pt = current_origin + t_val * current_ray;
             Vector3 emission = Vector3{0.0,0.0,0.0};
             if (auto *sph = std::get_if<Sphere>(hs)){
@@ -59,6 +60,10 @@ PPMHitPoint generate_visible_point(const Scene &scene, const Vector3 &ray, pcg32
                 return vis_pt;
             } else if (mat == material_e::MirrorType) { // reflect
                 transmission *= kd;
+                vis_pt.beta = transmission;
+                vis_pt.normal = sn;
+                vis_pt.position = pt;
+                vis_pt.omeganot = current_ray;
                 current_origin = pt;
                 current_ray = current_ray - 2.0*dot(current_ray, sn)*sn;
                 depth++;
