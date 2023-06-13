@@ -298,7 +298,7 @@ void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const 
             for (int depth = 0; depth < max_depth; depth++){
                 Real t = -1.0;
 
-                if (hit_cbvh(scene.cbvh, photon_dir, photon_ori, eps, eps, infinity<Real>(), &hs, t, uv)){ // was a hit
+                if (hit_cbvh(scene.cbvh, photon_dir, photon_ori, eps, eps, infinity<Real>(), &hs, t, uv)){ // was a hit, deposit photon
                     // put photon into the kd tree
                     Vector3 hit_pt = photon_ori + t*photon_dir;
                     cloud.pts[photon].x = hit_pt.x;
@@ -399,7 +399,7 @@ Image3 render_img(const std::vector<std::string> &params) {
             // FIXME use values that actually make sense
             // const long photon_count, const Real alpha, const int passes, const Real default_radius);
             50000,
-            0.7,
+            0.7, // alpha value from the paper
             5,
             0.1
         );
