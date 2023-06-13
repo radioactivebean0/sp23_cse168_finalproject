@@ -41,7 +41,6 @@ void multiple_importance(Scene &scene, Image3 &img, int max_depth, const int num
     reporter.done();
 }
 
-
 void next_event(Scene &scene, Image3 &img, const int num_tiles_x, const int num_tiles_y, const int tile_size, const int w, const int h, const int spp){
     const Real real_spp = Real(spp);
     const Real eps = 0.00000001;
@@ -222,8 +221,9 @@ void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const 
         reporter.update(1);
     }, Vector2i(num_tiles_x, num_tiles_y));
     reporter.done();
-    // TODO remove this kd tree test code
 
+    // TODO remove this kd tree test code
+    /*
     {
         auto n = 100000;
         using std::cout;
@@ -240,10 +240,10 @@ void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const 
         // construct a kd-tree index:
         using my_kd_tree_t = nanoflann::KDTreeSingleIndexAdaptor<
             nanoflann::L2_Simple_Adaptor<Real, PointCloud>,
-            PointCloud, 3 /* dim */
+            PointCloud, 3
         >;
 
-        my_kd_tree_t index(3 /*dim*/, cloud, {10 /* max leaf */});
+        my_kd_tree_t index(3, cloud, {10});
 
         const Real query_pt[3] = {0.5, 0.5, 0.5};
         const Real search_radius = static_cast<Real>(0.1);
@@ -262,6 +262,7 @@ void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const 
                  << "]=" << ret_matches[i].second << endl;
         cout << "\n";
     }
+    */
     pcg32_state pcg_state = init_pcg32();
     const Real eps = 0.0000001;
 
@@ -297,15 +298,17 @@ void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const 
             // intersect the ray with scene
             for (int depth = 0; depth < max_depth; depth++){
                 Real t = -1.0;
-
-                if (hit_cbvh(scene.cbvh, photon_dir, photon_ori, eps, eps, infinity<Real>(), &hs, t, uv)){ // was a hit, deposit photon
-                    // put photon into the kd tree
+                if (hit_cbvh(scene.cbvh, photon_dir, photon_ori, eps, eps, infinity<Real>(), &hs, t, uv)) {
+                    // was a hit, deposit photon into the kd tree
                     Vector3 hit_pt = photon_ori + t*photon_dir;
                     cloud.pts[photon].x = hit_pt.x;
                     cloud.pts[photon].y = hit_pt.y;
                     cloud.pts[photon].z = hit_pt.z;
                     photon++;
                     reporter.update(1);
+                    if (photon >= photon_count) {
+                        break;
+                    }
                     // russian roulette, reference: https://www.pbr-book.org/3ed-2018/Light_Transport_III_Bidirectional_Methods/Stochastic_Progressive_Photon_Mapping#AccumulatingVisiblePoints
                     if (luminance.y < 0.25) {
                         if (next_pcg32_real<Real>(pcg_state) > luminance.y) {
@@ -314,7 +317,7 @@ void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const 
                         luminance /= luminance.y;
                     }
                     // calculate bounce
-                    Vector3 hit_pt_cpy = hit_pt;                    // copy hit point since possible it got moved
+                    Vector3 hit_pt_cpy = hit_pt; // copy hit point since possible it got moved
                     photon_dir = photon_bounce(scene, hs, photon_dir, hit_pt, uv, pcg_state); 
                     photon_ori = hit_pt;
                     luminance *= photon_color(scene, hs, photon_dir, hit_pt_cpy, uv);
@@ -323,15 +326,33 @@ void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const 
                 }
             }
         }
-        using my_kd_tree_t = nanoflann::KDTreeSingleIndexAdaptor<
+        using kd_tree_t = nanoflann::KDTreeSingleIndexAdaptor<
             nanoflann::L2_Simple_Adaptor<Real, PointCloud>,
             PointCloud, 3 /* dim */
         >;
 
-        my_kd_tree_t photon_tree(3 /*dim*/, cloud, {10 /* max leaf */});
+        kd_tree_t photon_tree(3 /*dim*/, cloud, {10 /* max leaf */});
         reporter.done();
         // TODO
         // STEP 3: Gather photons for the hit points
+
+        std::vector<nanoflann::ResultItem<uint32_t, Real>> points;
+
+        // nanoflanSearchParamsameters params;
+        // params.sorted = false;
+
+        for (auto stripe: ppm_pixels.ppm_grid) {
+            for (auto point: stripe) {
+                Real query[3];
+                for (size_t i = 0; i < 3; ++i) {
+                    query[i] = point.position[i];
+                }
+                // TODO find way to not store into points
+                const size_t n = photon_tree.radiusSearch(&query[0], point.r, points);
+                // TODO check type conversion
+                point.n = n;
+            }
+        }
 
         // TODO
         // STEP 4: Adjust the radius of the visible points, discard all photons and repeat
