@@ -197,7 +197,21 @@ Vector3 photon_color(Scene &scene, Shape *hs, const Vector3 &omegai, const Vecto
     }
 }
 
-void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const int num_tiles_y, const int tile_size, const int w, const int h, const int spp, const long photon_count, const Real alpha, const int passes, const Real default_radius){
+void ppm(
+    Scene &scene,
+    Image3 &img,
+    int max_depth,
+    const int num_tiles_x,
+    const int num_tiles_y,
+    const int tile_size,
+    const int w,
+    const int h,
+    const int spp,
+    const long photon_count,
+    const Real alpha,
+    const int passes,
+    const Real default_radius
+) {
     // STEP 1: Trace rays into the scene and get hit points
     PPMGrid ppm_pixels(w,h,spp);
     ProgressReporter reporter(num_tiles_x * num_tiles_y);
@@ -333,35 +347,33 @@ void ppm(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const 
 
         kd_tree_t photon_tree(3 /*dim*/, cloud, {10 /* max leaf */});
         reporter.done();
-        // TODO
-        // STEP 3: Gather photons for the hit points
 
         std::vector<nanoflann::ResultItem<uint32_t, Real>> points;
-
-        // nanoflanSearchParamsameters params;
-        // params.sorted = false;
-
         for (auto stripe: ppm_pixels.ppm_grid) {
             for (auto point: stripe) {
+
+                // STEP 3: Gather photons for the hit points
+                // TODO check if this makes sense
+
                 Real query[3];
                 for (size_t i = 0; i < 3; ++i) {
                     query[i] = point.position[i];
                 }
                 // TODO find way to not store into points
-                const size_t n = photon_tree.radiusSearch(&query[0], point.r, points);
+                const size_t m = photon_tree.radiusSearch(&query[0], point.r, points);
+
+                // STEP 4: Adjust the radius of the visible points, discard all photons and repeat
+                // TODO check if this makes sense
+
+                point.r *= sqrt((point.n + alpha * m) / (point.n + m));
                 // TODO check type conversion
-                point.n = n;
+                point.n += m;
             }
         }
-
-        // TODO
-        // STEP 4: Adjust the radius of the visible points, discard all photons and repeat
     }
-    return;
 }
 
 Image3 render_img(const std::vector<std::string> &params) {
-    
     if (params.size() < 1) {
         return Image3(0, 0);
     }
