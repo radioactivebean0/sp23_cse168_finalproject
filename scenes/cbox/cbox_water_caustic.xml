@@ -56,7 +56,7 @@
 		<ref id="light"/>
 
 		<emitter type="area">
-			<rgb name="radiance" value="206.26, 109.088, 55.2608"/>
+			<rgb name="radiance" value="2062.6, 1090.88, 552.608"/>
 		</emitter>
 	</shape>
 	<shape type="obj" >

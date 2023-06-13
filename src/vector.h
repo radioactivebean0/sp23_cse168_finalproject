@@ -213,6 +213,31 @@ inline TVector3<T>& operator/=(TVector3<T> &v, const T &s) {
     return v;
 }
 
+// define hashing and eq for vectors. hopefully dont run into FP errors...
+template <typename T> //
+inline bool operator==(const TVector3<T> &v1, const TVector3<T> &v2) {
+    return (v1[0]==v2[0]) && (v1[1]==v2[1]) && (v1[2] == v2[2]);
+}
+
+template <typename T>
+struct std::hash< TVector3<T> >
+{
+  std::size_t operator()(const TVector3<T>& v) const
+  {
+    using std::size_t;
+    using std::hash;
+    using std::string;
+
+    // Compute individual hash values for first,
+    // second and third and combine them using XOR
+    // and bit shifting:
+    // combination strategy from https://en.cppreference.com/w/cpp/utility/hash
+    return ((hash<T>()(v[0])
+             ^ (hash<T>()(v[1]) << 1)) >> 1)
+             ^ (hash<T>()(v[2]) << 1);
+  }
+};
+
 template <typename T>
 inline T dot(const TVector3<T> &v0, const TVector3<T> &v1) {
     return v0[0] * v1[0] + v0[1] * v1[1] + v0[2] * v1[2];

@@ -49,14 +49,14 @@
 	<shape type="obj">
 		<string name="filename" value="meshes/cbox_luminaire.obj"/>
 		<transform name="toWorld">
-            <scale x="0.01" z="0.01"/>
-			<translate x="275.0" y="-0.2" z="160.0"/>
+            <scale x="0.005" z="0.005"/>
+			<translate x="275.0" y="-0.2" z="185.0"/>
 		</transform>
 
 		<ref id="light"/>
 
 		<emitter type="area">
-			<rgb name="radiance" value="206.26, 109.088, 55.2608"/>
+			<rgb name="radiance" value="206260, 109088, 27630"/>
 		</emitter>
 	</shape>
 	<shape type="obj" >

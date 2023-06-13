@@ -8,8 +8,10 @@ struct PPMHitPoint {
     Vector3 omeganot;
     Vector3 emission;
     Vector3 beta; // throughput of the color multiplied over the bounces
+    material_e mat;
     Real r; // photon radius
     long n; // photon count accumulated
+    Vector3 tau; // accumulated flux
 };
 
 // grid of vectors which are lists of the hit points sampled from a given pixel
@@ -29,9 +31,10 @@ struct PPMGrid {
         return ppm_grid[y * width + x];
     }
 
-    int spp;
     int width;
     int height;
+    int spp;
+
     std::vector< std::vector<PPMHitPoint> > ppm_grid;
 };
 

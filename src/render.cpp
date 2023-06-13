@@ -12,6 +12,7 @@
 #include "sampling.h"
 #include "ortho_basis.h"
 #include "3rdparty/nanoflann.hpp"
+#include <unordered_map>
 
 #include <stdlib.h>
 
@@ -188,12 +189,28 @@ Vector3 photon_color(Scene &scene, Shape *hs, const Vector3 &omegai, const Vecto
         return Vector3{1.0,1.0,1.0};
     } else {        // scattering, cosine hemisphere sampling and diffuse
         Vector3 sn = shape_shade_norm(hs, hit_pt, uv);
-        Real nwo = dot(sn,omegai);
+        Real nwo = dot(sn,-omegai);
         if (nwo <= 0.0){
             return Vector3{0.0,0.0,0.0};
         }
-        Real pdf = dot(sn,omegai)*c_INVPI;
+        Real pdf = dot(sn,-omegai)*c_INVPI;
+        if (pdf == 0.0){
+            return Vector3{0.0,0.0,0.0};
+        }
         return (kd*nwo*c_INVPI)/pdf;
+    }
+}
+
+// evaluate tau which is the flux contribution of a photon that is accumulated on a hit point in the paper
+Vector3 eval_tau(const PPMHitPoint &vp, const Vector3 &omegai, const Vector3 &phi_phot){
+    if (vp.mat == material_e::DiffuseType){
+        Real nwo = dot(vp.normal, -omegai);
+        if (nwo <= 0.0){
+            return Vector3{0.0,0.0,0.0}; // hitting wrong side of surface?
+        }
+        return phi_phot*vp.beta*nwo*c_INVPI;
+    } else { // mirror, dielectric dont store flux, other mats unsupported will do the same for now
+        return Vector3{0.0,0.0,0.0};
     }
 }
 
@@ -215,7 +232,7 @@ void ppm(
     // STEP 1: Trace rays into the scene and get hit points
     PPMGrid ppm_pixels(w,h,spp);
     ProgressReporter reporter(num_tiles_x * num_tiles_y);
-
+    std::cout << "tracing visible points" << std::endl;
     parallel_for([&](const Vector2i &tile) {
         pcg32_state pcg_state = init_pcg32(tile[1] * num_tiles_x + tile[0]);
         const int x0 = tile[0] * tile_size;
@@ -283,13 +300,15 @@ void ppm(
     for (int pass = 0; pass < passes; pass++){
         // TODO
         // STEP 2: Trace photons into the scene, keep going until photon count reached
+        std::cout << "accumulating photons pass " << pass << "/" << passes << std::endl;
         long photon = 0;
         int lit;
         Vector3 photon_ori, photon_dir;
         PointCloud cloud;
         cloud.pts.resize(photon_count);
+        std::cout << "dispersing photons" << std::endl;
         ProgressReporter reporter(photon_count);
-
+        std::unordered_map<Vector3, std::pair<Vector3,Vector3> > flux_map; // store location to (omegai, flux) map
         while(photon < photon_count){ // TODO: also parallelize, also probably move out of here
             // uniform sample and choose a light source
             lit = next_pcg32_real<Real>(pcg_state) * scene.lights.size();
@@ -318,23 +337,30 @@ void ppm(
                     cloud.pts[photon].x = hit_pt.x;
                     cloud.pts[photon].y = hit_pt.y;
                     cloud.pts[photon].z = hit_pt.z;
+                    if (flux_map.find(hit_pt) != flux_map.end() ){
+                        assert("Hash collision!");
+                    }
+                    flux_map.insert(std::make_pair(hit_pt, std::make_pair(photon_dir, luminance)));
                     photon++;
                     reporter.update(1);
                     if (photon >= photon_count) {
                         break;
                     }
-                    // russian roulette, reference: https://www.pbr-book.org/3ed-2018/Light_Transport_III_Bidirectional_Methods/Stochastic_Progressive_Photon_Mapping#AccumulatingVisiblePoints
-                    if (luminance.y < 0.25) {
-                        if (next_pcg32_real<Real>(pcg_state) > luminance.y) {
-                            break;
-                        }
-                        luminance /= luminance.y;
+                    Vector3 fr = photon_color(scene, hs, photon_dir, hit_pt, uv);
+                    if (fr==Vector3{0.0,0.0,0.0}){
+                        break;
                     }
+                    Vector3 newluminance = luminance * fr;
+
+                    // russian roulette, reference: https://www.pbr-book.org/3ed-2018/Light_Transport_III_Bidirectional_Methods/Stochastic_Progressive_Photon_Mapping#AccumulatingPhotonContributions
+                    Real q = max(Real(0.0), (1.0 - newluminance.y)/luminance.y);
+                    if (next_pcg32_real<Real>(pcg_state) < q) {
+                        break;
+                    }
+                    luminance = newluminance / (1.0 - q);
                     // calculate bounce
-                    Vector3 hit_pt_cpy = hit_pt; // copy hit point since possible it got moved
                     photon_dir = photon_bounce(scene, hs, photon_dir, hit_pt, uv, pcg_state); 
                     photon_ori = hit_pt;
-                    luminance *= photon_color(scene, hs, photon_dir, hit_pt_cpy, uv);
                 } else { // ray goes away
                     break;
                 }
@@ -347,30 +373,93 @@ void ppm(
 
         kd_tree_t photon_tree(3 /*dim*/, cloud, {10 /* max leaf */});
         reporter.done();
-
+        std::cout << "calculating photon contributions" << std::endl;
         std::vector<nanoflann::ResultItem<uint32_t, Real>> points;
-        for (auto stripe: ppm_pixels.ppm_grid) {
-            for (auto point: stripe) {
+        for (auto& stripe: ppm_pixels.ppm_grid) {
+            for (auto& point: stripe) {
 
                 // STEP 3: Gather photons for the hit points
                 // TODO check if this makes sense
-
+                if (point.r < 0.0){
+                    continue;
+                }
                 Real query[3];
                 for (size_t i = 0; i < 3; ++i) {
                     query[i] = point.position[i];
                 }
                 // TODO find way to not store into points
                 const size_t m = photon_tree.radiusSearch(&query[0], point.r, points);
+                if (m == 0){ // nothing in the radius, estimate a radius by getting 20 nearest neighbors
+                    size_t find_nearest = 20;
+                    std::vector<uint32_t> ret_index(find_nearest);
+                    std::vector<Real>    out_dist_sqr(find_nearest);
 
-                // STEP 4: Adjust the radius of the visible points, discard all photons and repeat
+                    find_nearest = photon_tree.knnSearch(
+                        &query[0], find_nearest, &ret_index[0], &out_dist_sqr[0]);
+
+                    // In case of less points in the tree than requested:
+                    ret_index.resize(find_nearest);
+                    out_dist_sqr.resize(find_nearest);
+                    point.r = sqrt(*max_element(out_dist_sqr.begin(), out_dist_sqr.end()));
+                    continue;
+                }
+                // STEP 4: Adjust the radius of the visible points
                 // TODO check if this makes sense
 
                 point.r *= sqrt((point.n + alpha * m) / (point.n + m));
                 // TODO check type conversion
-                point.n += m;
+
+                // STEP 5: accumulate flux
+                Vector3 tau_m = Vector3{0.0,0.0,0.0};
+                for (size_t i = 0; i < m; i++){
+                    PointCloud::Point p_loc = cloud.pts[points[i].first];
+                    std::pair<Vector3, Vector3> f_contrib = flux_map.at(Vector3{p_loc.x, p_loc.y, p_loc.z});
+                    tau_m += eval_tau(point, f_contrib.first, f_contrib.second);
+                    //std::cout << tau_m << std::endl;
+                }
+                //std::cout << point.tau << std::endl;
+                point.tau = (point.tau+tau_m)*((point.n+alpha*m)/(point.n+m));
+                
+                point.n += m*alpha; // unsure about this, probably should be adding alpha*m photons since that was the point of radius reduction may run into weird rounding here
+                // if (point.n > 0 ) {
+                //     std::cout << point.n << std::endl;
+                // }
             }
         }
     }
+    // render img using photons
+    std::cout << "rendering final img" << std::endl;
+    const long n_emitted = photon_count;
+    parallel_for([&](const Vector2i &tile) {
+        const int x0 = tile[0] * tile_size;
+        const int x1 = min(x0 + tile_size, w);
+        const int y0 = tile[1] * tile_size;
+        const int y1 = min(y0 + tile_size, h);
+        int x, y;
+        Vector3 acc_color;
+        std::vector<PPMHitPoint> sample;
+        for (y = y0; y < y1; ++y){
+            for (x = x0; x < x1; ++x){
+                sample = ppm_pixels(x,y);
+                //Real samples = Real(sample.size())/spp;
+                acc_color = Vector3{0.0,0.0,0.0};
+                for (auto point: sample){
+                    if (point.r < 0.0){
+                        //acc_color += Vector3{1.0,1.0,1.0};
+                        // acc_color += Vector3{Real(point.n),Real(point.n),Real(point.n)};
+                        acc_color += scene.background_color;
+                    }else {
+                        acc_color += (1.0/(c_PI*point.r*point.r*n_emitted))*(point.tau);
+
+                    }
+
+                }
+                img(x,y) = acc_color/Real(spp);///Real(spp);///((Real)sample.size());
+            }
+        }
+        reporter.update(1);
+    }, Vector2i(num_tiles_x, num_tiles_y));
+    reporter.done();
 }
 
 Image3 render_img(const std::vector<std::string> &params) {
@@ -428,13 +517,13 @@ Image3 render_img(const std::vector<std::string> &params) {
             tile_size,
             w,
             h,
-            spp,
+            16, // hard code for now
             // FIXME use values that actually make sense
             // const long photon_count, const Real alpha, const int passes, const Real default_radius);
-            50000,
+            100000,
             0.7, // alpha value from the paper
-            5,
-            0.1
+            20,
+            50.0
         );
     } else {
         assert("unsupported render method");

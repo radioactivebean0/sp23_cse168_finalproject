@@ -11,9 +11,11 @@ PPMHitPoint generate_visible_point(const Scene &scene, const Vector3 &ray, pcg32
     Real t_val = -1.0;
     Vector2 uv;
     PPMHitPoint vis_pt;
+    vis_pt.r=default_radius;
+    vis_pt.n = 0;
+    vis_pt.tau = Vector3{0.0,0.0,0.0};
     Vector3 pt, sn, kd;
     int mat_id;
-
     while (depth < max_depth){
         if (hit_cbvh(scene.cbvh, current_ray, current_origin, eps, eps, infinity<Real>(), &hs, t_val, uv)){ // was a hit
             //std::cout << "hit" << std::endl;
@@ -54,9 +56,8 @@ PPMHitPoint generate_visible_point(const Scene &scene, const Vector3 &ray, pcg32
                 vis_pt.emission = emission;
                 vis_pt.normal = sn;
                 vis_pt.position = pt;
-                vis_pt.omeganot = Vector3{0.0,0.0,0.0};
-                vis_pt.r=default_radius;
-                vis_pt.n = 0;
+                vis_pt.omeganot = current_ray;
+                vis_pt.mat = material_e::DiffuseType;
                 return vis_pt;
             } else if (mat == material_e::MirrorType) { // reflect
                 transmission *= kd;
@@ -64,6 +65,7 @@ PPMHitPoint generate_visible_point(const Scene &scene, const Vector3 &ray, pcg32
                 vis_pt.normal = sn;
                 vis_pt.position = pt;
                 vis_pt.omeganot = current_ray;
+                vis_pt.mat = material_e::MirrorType;
                 current_origin = pt;
                 current_ray = current_ray - 2.0*dot(current_ray, sn)*sn;
                 depth++;
@@ -90,6 +92,11 @@ PPMHitPoint generate_visible_point(const Scene &scene, const Vector3 &ray, pcg32
                     current_origin = current_origin + (t_val+eps) * current_ray; // move to avoid moire patterns
                     current_ray = r_out_perp + r_out_parallel;
                 }
+                vis_pt.beta = transmission;
+                vis_pt.normal = n;
+                vis_pt.position = pt;
+                vis_pt.omeganot = current_ray;
+                vis_pt.mat = material_e::DielectricType;
                 depth++;
             } else {
                 assert("unsupported material");
@@ -102,8 +109,10 @@ PPMHitPoint generate_visible_point(const Scene &scene, const Vector3 &ray, pcg32
                     .omeganot=Vector3{0.0,0.0,0.0},
                     .emission=Vector3{0.0,0.0,0.0},
                     .beta=scene.background_color,
+                    .mat=material_e::DiffuseType, // just use diffuse as default, shouldnt check this anyways
                     .r=-1.0,
-                    .n=0
+                    .n=0,
+                    .tau=Vector3{0.0,0.0,0.0}
                 };
             } else {
                 return vis_pt;
@@ -116,7 +125,9 @@ PPMHitPoint generate_visible_point(const Scene &scene, const Vector3 &ray, pcg32
         .omeganot=Vector3{0.0,0.0,0.0},
         .emission=Vector3{0.0,0.0,0.0},
         .beta=scene.background_color,
+        .mat=material_e::DiffuseType, // just use diffuse as default, shouldnt check this anyways
         .r=-1.0,
-        .n=0
+        .n=0,
+        .tau=Vector3{0.0,0.0,0.0}
     };
 }
