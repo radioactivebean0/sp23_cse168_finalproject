@@ -178,22 +178,22 @@ Vector3 photon_bounce(Scene &scene, Shape *hs, const Vector3 &omeganot, Vector3 
     }
 }
 
-Vector3 photon_color(Scene &scene, Shape *hs, const Vector3 &omegai, const Vector3 &hit_pt, const Vector2 &uv) {
+Vector3 photon_color(Scene &scene, Shape *hs, const Vector3 &omeganot, const Vector3 &hit_pt, const Vector2 &uv) {
     int mat_id = shape_matid(hs);
     material_e mat = scene.materials.at(mat_id).material_type;
     Vector3 kd = get_texture_kd(scene.materials.at(mat_id).reflectance, uv);
     if (mat==material_e::MirrorType){ // purely specular
         Vector3 gn = shape_geo_norm(hs, hit_pt, uv);
-        return 2.0*(kd + (1.0-kd)* pow((1.0 - dot(gn,omegai)), 5));
+        return 2.0*(kd + (1.0-kd)* pow((1.0 - dot(gn,omeganot)), 5));
     } else if (mat == material_e::DielectricType) { // dielectric
         return Vector3{1.0,1.0,1.0};
     } else {        // scattering, cosine hemisphere sampling and diffuse
         Vector3 sn = shape_shade_norm(hs, hit_pt, uv);
-        Real nwo = dot(sn,-omegai);
+        Real nwo = dot(sn,omeganot);
         if (nwo <= 0.0){
             return Vector3{0.0,0.0,0.0};
         }
-        Real pdf = dot(sn,-omegai)*c_INVPI;
+        Real pdf = dot(sn,omeganot)*c_INVPI;
         if (pdf == 0.0){
             return Vector3{0.0,0.0,0.0};
         }
@@ -346,7 +346,11 @@ void ppm(
                     if (photon >= photon_count) {
                         break;
                     }
-                    Vector3 fr = photon_color(scene, hs, photon_dir, hit_pt, uv);
+
+                    Vector3 hit_pt_cpy = hit_pt;
+                    photon_dir = photon_bounce(scene, hs, photon_dir, hit_pt, uv, pcg_state); 
+
+                    Vector3 fr = photon_color(scene, hs, photon_dir, hit_pt_cpy, uv);
                     if (fr==Vector3{0.0,0.0,0.0}){
                         break;
                     }
@@ -359,7 +363,6 @@ void ppm(
                     }
                     luminance = newluminance / (1.0 - q);
                     // calculate bounce
-                    photon_dir = photon_bounce(scene, hs, photon_dir, hit_pt, uv, pcg_state); 
                     photon_ori = hit_pt;
                 } else { // ray goes away
                     break;
@@ -374,6 +377,7 @@ void ppm(
         kd_tree_t photon_tree(3 /*dim*/, cloud, {10 /* max leaf */});
         reporter.done();
         std::cout << "calculating photon contributions" << std::endl;
+        ProgressReporter reporter2(num_tiles_x*num_tiles_y);
         parallel_for([&](const Vector2i &tile) {
             const int x0 = tile[0] * tile_size;
             const int x1 = min(x0 + tile_size, w);
@@ -451,9 +455,9 @@ void ppm(
                     }
                 }
             }
-            reporter.update(1);
+            reporter2.update(1);
         }, Vector2i(num_tiles_x, num_tiles_y));
-        reporter.done();
+        reporter2.done();
     //     std::vector<nanoflann::ResultItem<uint32_t, Real>> points;
     //     for (auto& stripe: ppm_pixels.ppm_grid) {
     //         for (auto& point: stripe) {
@@ -531,23 +535,23 @@ void ppm(
                         // acc_color += Vector3{Real(point.n),Real(point.n),Real(point.n)};
                         acc_color += scene.background_color;
                     }else {
-                        acc_color += 1000000 * (1.0/(c_PI*point.r*point.r*n_emitted))*(point.tau);
+                        acc_color += point.emission + (1.0/(c_PI*point.r*point.r*point.n))*(point.tau); //1000000 * (1.0/(c_PI*point.r*point.r*n_emitted))*(point.tau);
                         // acc_color += 100000 * (1.0/(c_PI*point.r*point.r* point.n))*(point.tau);
-                        std::cout << "[DEBUG] acc_color = " << acc_color << ", point.r = " << point.r << ", n_mitted = " << n_emitted << ", point.tau = " << point.tau << std::endl;
-                        std::cout << "[DEBUG] more info: point.n = " << point.n << std::endl;
+                        //std::cout << "[DEBUG] acc_color = " << acc_color << ", point.r = " << point.r << ", n_mitted = " << n_emitted << ", point.tau = " << point.tau << std::endl;
+                        //std::cout << "[DEBUG] more info: point.n = " << point.n << std::endl;
                     }
 
                 }
-                img(x, y) = acc_color / Real(spp); ///Real(spp); ///((Real)sample.size());
-                auto point = img(x, y);
-                auto max = std::max({ point.x, point.y, point.z });
-                if (max > 1.0) {
-                    img(x, y).x = 1.0;
-                    img(x, y).y = 1.0;
-                    img(x, y).z = 1.0;
-                    // img(x, y) /= max;
-                }
-                std::cout << "[DEBUG] img(x, y) = " << img(x, y) << ", max = " << max << std::endl;
+                img(x, y) = acc_color;/// Real(spp); ///Real(spp); ///((Real)sample.size());
+                // auto point = img(x, y);
+                // auto max = std::max({ point.x, point.y, point.z });
+                // if (max > 1.0) {
+                //     img(x, y).x = 1.0;
+                //     img(x, y).y = 1.0;
+                //     img(x, y).z = 1.0;
+                //     // img(x, y) /= max;
+                // }
+                // std::cout << "[DEBUG] img(x, y) = " << img(x, y) << ", max = " << max << std::endl;
             }
         }
         reporter.update(1);
