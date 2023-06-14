@@ -60,8 +60,9 @@ PPMHitPoint generate_visible_point(const Scene &scene, const Vector3 &ray, pcg32
                 vis_pt.mat = material_e::DiffuseType;
                 return vis_pt;
             } else if (mat == material_e::MirrorType) { // reflect
-                transmission *= kd;
+                transmission *= kd;//(kd + (1.0-kd)* pow((1.0 - dot(gn,omeganot)), 5));
                 vis_pt.beta = transmission;
+                vis_pt.emission = emission;
                 vis_pt.normal = sn;
                 vis_pt.position = pt;
                 vis_pt.omeganot = current_ray;
@@ -93,6 +94,7 @@ PPMHitPoint generate_visible_point(const Scene &scene, const Vector3 &ray, pcg32
                     current_ray = r_out_perp + r_out_parallel;
                 }
                 vis_pt.beta = transmission;
+                vis_pt.emission = emission;
                 vis_pt.normal = n;
                 vis_pt.position = pt;
                 vis_pt.omeganot = current_ray;

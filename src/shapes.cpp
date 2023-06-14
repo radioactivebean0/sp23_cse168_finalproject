@@ -114,12 +114,13 @@ void triangle_points(const Triangle* tri, Vector3 &p0, Vector3 &p1, Vector3 &p2)
     p2 = tri->mesh->positions.at(tri->mesh->indices.at(tri->face_index).z);
 }
 
-Vector3 sample_shape_point(const Shape* shape, pcg32_state &pcg_state, Vector3 &norm){
+Vector3 sample_shape_point(const Shape* shape, pcg32_state &pcg_state, Vector3 &norm, Real &pdf){
     if (auto *sph = std::get_if<Sphere>(shape)){
         Real theta = acos(1.0-(2.0*next_pcg32_real<double>(pcg_state)));
         Real phi = c_TWOPI * next_pcg32_real<double>(pcg_state);
         Vector3 pt = sph->center + Vector3{sph->radius*sin(theta)*cos(phi), sph->radius*sin(theta)*sin(phi),sph->radius*cos(theta)};
         norm = (pt - sph->center) / sph->radius;
+        pdf = sph->radius*sph->radius*c_INVFOURPI;
         return pt;
     } else if (auto *tri = std::get_if<Triangle>(shape)){
         Vector3 p0, p1, p2;
@@ -129,6 +130,7 @@ Vector3 sample_shape_point(const Shape* shape, pcg32_state &pcg_state, Vector3 &
         Real b1 = 1 - sqrt(u1);
         Real b2 = u2 * sqrt(u1);
         norm = shading_norm(tri, Vector2{b1,b2});
+        pdf = 1.0/(0.5*length(cross(p2-p0,p1-p0)));
         return (1.0-b1-b2)*p0 + b1*p1 + b2*p2;
     } else {
         assert(false);

@@ -11,6 +11,7 @@
 #include "ppm.h"
 #include "sampling.h"
 #include "ortho_basis.h"
+#include "brdf.h"
 #include "3rdparty/nanoflann.hpp"
 #include <unordered_map>
 
@@ -142,65 +143,6 @@ struct PointCloud {
     }
 };
 
-// todo, move this out
-Vector3 photon_bounce(Scene &scene, Shape *hs, const Vector3 &omeganot, Vector3 &hit_pt, const Vector2 &uv, pcg32_state &pcg_state){
-    int mat_id = shape_matid(hs);
-    material_e mat = scene.materials.at(mat_id).material_type;
-    Vector3 n = shape_shade_norm(hs, hit_pt, uv);
-    if (mat == material_e::MirrorType){ // mirrors
-        return omeganot - 2.0*dot(omeganot, n)*n;
-    } else if (mat == material_e::DielectricType){
-        const Real inIR = scene.materials.at(mat_id).ref_index;
-        const Real outIR = scene.materials.at(mat_id).exponent;
-        Real cos_theta = fmin(dot(-omeganot, n), 1.0);
-        Real ref_ratio = (cos_theta > 0.0) ? outIR/inIR : inIR/outIR; // depends if ray points in or out
-        if (cos_theta < 0.0){ // ray inside
-            cos_theta = -cos_theta;
-            n = -n;
-        }
-        Real sin_theta = sqrt(Real(1.0) - cos_theta*cos_theta);
-        Vector3 direction;
-        Real schlick_fresnel = pow((ref_ratio-1.0)/(ref_ratio+1.0), 2.0);
-        schlick_fresnel = schlick_fresnel + (1.0-schlick_fresnel)*pow(1.0-cos_theta, 5);
-        if (ref_ratio* sin_theta > 1.0 || schlick_fresnel > next_pcg32_real<Real>(pcg_state)){ // reflect
-            direction = omeganot - 2.0*dot(omeganot,n)*n;
-        } else { // refract
-            Vector3 r_out_perp = ref_ratio * (omeganot + cos_theta*n);
-            Vector3 r_out_parallel = -sqrt(fabs(1.0 - length_squared(r_out_perp))) * n;
-            direction = r_out_perp + r_out_parallel;
-            hit_pt = hit_pt + 0.00001*omeganot; // adjust to avoid moire
-        }
-        return direction;
-    } else {        // scattering, cosine hemisphere sampling and diffuse
-        Vector3 scatter = rand_cos(pcg_state);
-        Vector3 bounce = ortho_basis(scatter, n);
-        return bounce;
-    }
-}
-
-Vector3 photon_color(Scene &scene, Shape *hs, const Vector3 &omeganot, const Vector3 &hit_pt, const Vector2 &uv) {
-    int mat_id = shape_matid(hs);
-    material_e mat = scene.materials.at(mat_id).material_type;
-    Vector3 kd = get_texture_kd(scene.materials.at(mat_id).reflectance, uv);
-    if (mat==material_e::MirrorType){ // purely specular
-        Vector3 gn = shape_geo_norm(hs, hit_pt, uv);
-        return 2.0*(kd + (1.0-kd)* pow((1.0 - dot(gn,omeganot)), 5));
-    } else if (mat == material_e::DielectricType) { // dielectric
-        return Vector3{1.0,1.0,1.0};
-    } else {        // scattering, cosine hemisphere sampling and diffuse
-        Vector3 sn = shape_shade_norm(hs, hit_pt, uv);
-        Real nwo = dot(sn,omeganot);
-        if (nwo <= 0.0){
-            return Vector3{0.0,0.0,0.0};
-        }
-        Real pdf = dot(sn,omeganot)*c_INVPI;
-        if (pdf == 0.0){
-            return Vector3{0.0,0.0,0.0};
-        }
-        return (kd*nwo*c_INVPI)/pdf;
-    }
-}
-
 // evaluate tau which is the flux contribution of a photon that is accumulated on a hit point in the paper
 Vector3 eval_tau(const PPMHitPoint &vp, const Vector3 &omegai, const Vector3 &phi_phot){
     if (vp.mat == material_e::DiffuseType){
@@ -314,15 +256,16 @@ void ppm(
             lit = next_pcg32_real<Real>(pcg_state) * scene.lights.size();
             // sample ray from light source
             Vector3 luminance;
+            Real light_pdf;
             if (auto *alight = std::get_if<AreaLight>(&scene.lights.at(lit))){
                 Vector3 light_norm;
-                photon_ori = sample_shape_point(&(scene.shapes.at(alight->shape_idx)), pcg_state, light_norm);
+                photon_ori = sample_shape_point(&(scene.shapes.at(alight->shape_idx)), pcg_state, light_norm, light_pdf);
                 photon_dir = ortho_basis(rand_cos(pcg_state), light_norm);
-                luminance = dot(photon_dir, light_norm) * alight->radiance;
+                luminance = (dot(photon_dir, light_norm) * alight->radiance)/(light_pdf*(1.0/scene.lights.size()));
             } else if (auto *light = std::get_if<PointLight>(&scene.lights.at(lit))){
                 photon_ori = light->position;
                 photon_dir = rand_uniform_sphere(pcg_state);
-                luminance = light->intensity;
+                luminance = light->intensity/((1.0/scene.lights.size())*c_INVFOURPI); // normalize by chance of picking light and sphere pdf of picking
             } else {
                 assert(false);
             }
@@ -348,9 +291,9 @@ void ppm(
                     }
 
                     Vector3 hit_pt_cpy = hit_pt;
-                    photon_dir = photon_bounce(scene, hs, photon_dir, hit_pt, uv, pcg_state); 
+                    photon_dir = brdf_bounce(scene, hs, photon_dir, hit_pt, uv, pcg_state); 
 
-                    Vector3 fr = photon_color(scene, hs, photon_dir, hit_pt_cpy, uv);
+                    Vector3 fr = brdf_color(scene, hs, photon_dir, hit_pt_cpy, uv);
                     if (fr==Vector3{0.0,0.0,0.0}){
                         break;
                     }
@@ -535,14 +478,14 @@ void ppm(
                         // acc_color += Vector3{Real(point.n),Real(point.n),Real(point.n)};
                         acc_color += scene.background_color;
                     }else {
-                        acc_color += point.emission + (1.0/(c_PI*point.r*point.r*point.n))*(point.tau); //1000000 * (1.0/(c_PI*point.r*point.r*n_emitted))*(point.tau);
+                        acc_color += point.emission + (1.0/(c_PI*point.r*point.r*n_emitted))*(point.tau); //1000000 * (1.0/(c_PI*point.r*point.r*n_emitted))*(point.tau);
                         // acc_color += 100000 * (1.0/(c_PI*point.r*point.r* point.n))*(point.tau);
                         //std::cout << "[DEBUG] acc_color = " << acc_color << ", point.r = " << point.r << ", n_mitted = " << n_emitted << ", point.tau = " << point.tau << std::endl;
                         //std::cout << "[DEBUG] more info: point.n = " << point.n << std::endl;
                     }
 
                 }
-                img(x, y) = acc_color;/// Real(spp); ///Real(spp); ///((Real)sample.size());
+                img(x, y) = acc_color/Real(passes);/// Real(spp); ///Real(spp); ///((Real)sample.size());
                 // auto point = img(x, y);
                 // auto max = std::max({ point.x, point.y, point.z });
                 // if (max > 1.0) {
@@ -609,19 +552,19 @@ Image3 render_img(const std::vector<std::string> &params) {
         ppm(
             scene,
             img,
-            10,
+            15,
             num_tiles_x,
             num_tiles_y,
             tile_size,
             w,
             h,
-            16, // hard code for now
+            64, // hard code for now
             // FIXME use values that actually make sense
             // const long photon_count, const Real alpha, const int passes, const Real default_radius);
-            100000,
+            200000,
             0.7, // alpha value from the paper
             20,
-            50.0
+            20.0
         );
     } else {
         assert("unsupported render method");

@@ -34,6 +34,8 @@ set(SRCS src/3rdparty/miniz.h
          src/camera.cpp
          src/materials.h
          src/materials.cpp
+         src/brdf.h
+         src/brdf.cpp
          src/lights.h
          src/shapes.h
          src/shapes.cpp

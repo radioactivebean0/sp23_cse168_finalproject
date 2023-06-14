@@ -62,7 +62,7 @@ struct WideAABB {
 Vector2 sphere_uv(const Sphere* sphere, const Vector3 &pt);
 Vector2 triangle_uv(const Triangle* triangle, const Vector2 &uv);
 Vector3 shading_norm(const Triangle* tri, const Vector2 &uv);
-Vector3 sample_shape_point(const Shape* shape, pcg32_state &pcg_state, Vector3 &norm);
+Vector3 sample_shape_point(const Shape* shape, pcg32_state &pcg_state, Vector3 &norm, Real &pdf);
 Vector3 shape_shade_norm(const Shape* shape, const Vector3 &pt, const Vector2 &uv);
 Vector3 shape_geo_norm(const Shape* shape, const Vector3 &pt, const Vector2 &uv);
 int shape_matid(const Shape* shape);
