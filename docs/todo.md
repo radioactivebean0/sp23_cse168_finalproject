@@ -1,6 +1,10 @@
 # To-dos
 
 - More reading
+- Figure out bug
+	- Stupidly low values, stupidly low tau, stupidly high total n, should use point.n?
+	- `point.n` is also stupidly low
+	- Maybe we should use floating points for `point.n` when multiplying by `m`?
 
 ## Project
 
