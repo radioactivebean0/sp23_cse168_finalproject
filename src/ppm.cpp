@@ -17,8 +17,8 @@ PPMHitPoint generate_visible_point(const Scene &scene, const Vector3 &ray, pcg32
     Vector3 pt, sn, kd;
     int mat_id;
     while (depth < max_depth){
-        if (hit_cbvh(scene.cbvh, current_ray, current_origin, eps, eps, infinity<Real>(), &hs, t_val, uv)){ // was a hit
-            //std::cout << "hit" << std::endl;
+        if (hit_cbvh(scene.cbvh, current_ray, current_origin, eps, eps, infinity<Real>(), &hs, t_val, uv)){
+            // was a hit
             pt = current_origin + t_val * current_ray;
             Vector3 emission = Vector3{0.0,0.0,0.0};
             if (auto *sph = std::get_if<Sphere>(hs)){
@@ -34,7 +34,7 @@ PPMHitPoint generate_visible_point(const Scene &scene, const Vector3 &ray, pcg32
             } else if (auto *tri = std::get_if<Triangle>(hs)) {
                 // check if area light
                 if (tri->mesh->area_light_id != -1){
-                    emission =  std::get<AreaLight>(scene.lights.at(tri->mesh->area_light_id)).radiance;
+                    emission = std::get<AreaLight>(scene.lights.at(tri->mesh->area_light_id)).radiance;
                 }
                 // calc uv
                 Vector2 uvt = triangle_uv(tri, uv);
@@ -48,7 +48,8 @@ PPMHitPoint generate_visible_point(const Scene &scene, const Vector3 &ray, pcg32
                 kd = get_texture_kd(scene.materials.at(tri->mesh->material_id).reflectance, uvt);
                 mat_id = tri->mesh->material_id;
             } else {
-                assert(false);
+                std::cerr << "Error: not sphere or triangle" << std::endl;
+                exit(1);
             }
             material_e mat = scene.materials.at(mat_id).material_type;
             if (mat == material_e::DiffuseType){ // hit diffuse, create a visible point
@@ -102,9 +103,11 @@ PPMHitPoint generate_visible_point(const Scene &scene, const Vector3 &ray, pcg32
                 vis_pt.mat = material_e::DielectricType;
                 depth++;
             } else {
-                assert("unsupported material");
+                std::cerr << "Error: unsupported material" << std::endl;
+                exit(1);
             }
         } else {
+            // was not a hit
             if (depth == 0){
                 return PPMHitPoint{
                     .position=Vector3{0.0,0.0,0.0},

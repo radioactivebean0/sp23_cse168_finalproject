@@ -175,6 +175,7 @@ void ppm(
     PPMGrid ppm_pixels(w,h,spp);
     ProgressReporter reporter(num_tiles_x * num_tiles_y);
     std::cout << "tracing visible points" << std::endl;
+    // for each pixel, generate sample visible points
     parallel_for([&](const Vector2i &tile) {
         pcg32_state pcg_state = init_pcg32(tile[1] * num_tiles_x + tile[0]);
         const int x0 = tile[0] * tile_size;
@@ -195,47 +196,6 @@ void ppm(
     }, Vector2i(num_tiles_x, num_tiles_y));
     reporter.done();
 
-    // TODO remove this kd tree test code
-    /*
-    {
-        auto n = 100000;
-        using std::cout;
-        using std::endl;
-
-        PointCloud cloud;
-        cloud.pts.resize(n);
-        for (size_t i = 0; i < n; i++) {
-            cloud.pts[i].x = 10 * (rand() % 1000) / Real(1000);
-            cloud.pts[i].y = 10 * (rand() % 1000) / Real(1000);
-            cloud.pts[i].z = 10 * (rand() % 1000) / Real(1000);
-        }
-
-        // construct a kd-tree index:
-        using my_kd_tree_t = nanoflann::KDTreeSingleIndexAdaptor<
-            nanoflann::L2_Simple_Adaptor<Real, PointCloud>,
-            PointCloud, 3
-        >;
-
-        my_kd_tree_t index(3, cloud, {10});
-
-        const Real query_pt[3] = {0.5, 0.5, 0.5};
-        const Real search_radius = static_cast<Real>(0.1);
-        std::vector<nanoflann::ResultItem<uint32_t, Real>> ret_matches;
-
-        // nanoflanSearchParamsameters params;
-        // params.sorted = false;
-
-        const size_t nMatches =
-            index.radiusSearch(&query_pt[0], search_radius, ret_matches);
-
-        cout << "radiusSearch(): radius=" << search_radius << " -> " << nMatches
-             << " matches\n";
-        for (size_t i = 0; i < nMatches; i++)
-            cout << "idx[" << i << "]=" << ret_matches[i].first << " dist[" << i
-                 << "]=" << ret_matches[i].second << endl;
-        cout << "\n";
-    }
-    */
     pcg32_state pcg_state = init_pcg32();
     const Real eps = 0.0000001;
 
@@ -281,7 +241,8 @@ void ppm(
                     cloud.pts[photon].y = hit_pt.y;
                     cloud.pts[photon].z = hit_pt.z;
                     if (flux_map.find(hit_pt) != flux_map.end() ){
-                        assert("Hash collision!");
+                        std::cerr << "Error: hash collision" << std::endl;
+                        exit(1);
                     }
                     flux_map.insert(std::make_pair(hit_pt, std::make_pair(photon_dir, luminance)));
                     photon++;
@@ -300,7 +261,7 @@ void ppm(
                     Vector3 newluminance = luminance * fr;
 
                     // russian roulette, reference: https://www.pbr-book.org/3ed-2018/Light_Transport_III_Bidirectional_Methods/Stochastic_Progressive_Photon_Mapping#AccumulatingPhotonContributions
-                    Real q = max(Real(0.0), (1.0 - newluminance.y)/luminance.y);
+                    Real q = max(Real(0.0), 1.0 - newluminance.y / luminance.y);
                     if (next_pcg32_real<Real>(pcg_state) < q) {
                         break;
                     }
@@ -311,6 +272,10 @@ void ppm(
                     break;
                 }
             }
+        }
+        if (photon_count != photon) {
+            std::cerr << "Error: unexpected photon count for n_emitted" << std::endl;
+            exit(1);
         }
         using kd_tree_t = nanoflann::KDTreeSingleIndexAdaptor<
             nanoflann::L2_Simple_Adaptor<Real, PointCloud>,
@@ -401,58 +366,6 @@ void ppm(
             reporter2.update(1);
         }, Vector2i(num_tiles_x, num_tiles_y));
         reporter2.done();
-    //     std::vector<nanoflann::ResultItem<uint32_t, Real>> points;
-    //     for (auto& stripe: ppm_pixels.ppm_grid) {
-    //         for (auto& point: stripe) {
-
-    //             // STEP 3: Gather photons for the hit points
-    //             // TODO check if this makes sense
-    //             if (point.r < 0.0){
-    //                 continue;
-    //             }
-    //             Real query[3];
-    //             for (size_t i = 0; i < 3; ++i) {
-    //                 query[i] = point.position[i];
-    //             }
-    //             // TODO find way to not store into points
-    //             const size_t m = photon_tree.radiusSearch(&query[0], point.r, points);
-    //             if (m == 0){ // nothing in the radius, estimate a radius by getting 20 nearest neighbors
-    //                 size_t find_nearest = 20;
-    //                 std::vector<uint32_t> ret_index(find_nearest);
-    //                 std::vector<Real>    out_dist_sqr(find_nearest);
-
-    //                 find_nearest = photon_tree.knnSearch(
-    //                     &query[0], find_nearest, &ret_index[0], &out_dist_sqr[0]);
-
-    //                 // In case of less points in the tree than requested:
-    //                 ret_index.resize(find_nearest);
-    //                 out_dist_sqr.resize(find_nearest);
-    //                 point.r = sqrt(*max_element(out_dist_sqr.begin(), out_dist_sqr.end()));
-    //                 continue;
-    //             }
-    //             // STEP 4: Adjust the radius of the visible points
-    //             // TODO check if this makes sense
-
-    //             point.r *= sqrt((point.n + alpha * m) / (point.n + m));
-    //             // TODO check type conversion
-
-    //             // STEP 5: accumulate flux
-    //             Vector3 tau_m = Vector3{0.0,0.0,0.0};
-    //             for (size_t i = 0; i < m; i++){
-    //                 PointCloud::Point p_loc = cloud.pts[points[i].first];
-    //                 std::pair<Vector3, Vector3> f_contrib = flux_map.at(Vector3{p_loc.x, p_loc.y, p_loc.z});
-    //                 tau_m += eval_tau(point, f_contrib.first, f_contrib.second);
-    //                 //std::cout << tau_m << std::endl;
-    //             }
-    //             //std::cout << point.tau << std::endl;
-    //             point.tau = (point.tau+tau_m)*((point.n+alpha*m)/(point.n+m));
-                
-    //             point.n += m*alpha; // unsure about this, probably should be adding alpha*m photons since that was the point of radius reduction may run into weird rounding here
-    //             // if (point.n > 0 ) {
-    //             //     std::cout << point.n << std::endl;
-    //             // }
-    //         }
-    //     }
     }
     // render img using photons
     std::cout << "rendering final img" << std::endl;

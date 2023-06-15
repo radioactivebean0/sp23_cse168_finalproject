@@ -1,4 +1,9 @@
 #pragma once
+
+// CMake insert NDEBUG when building with RelWithDebInfo
+// This is an ugly hack to undo that...
+#undef NDEBUG
+
 #include "scene.h"
 
 // stores a hitpoint, not final maybe need more or less fields
@@ -10,7 +15,7 @@ struct PPMHitPoint {
     Vector3 beta; // throughput of the color multiplied over the bounces
     material_e mat;
     Real r; // photon radius
-    long n; // photon count accumulated
+    Real n; // photon count accumulated
     Vector3 tau; // accumulated flux
 };
 
