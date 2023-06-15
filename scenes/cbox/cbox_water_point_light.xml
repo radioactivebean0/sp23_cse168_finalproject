@@ -18,13 +18,10 @@
 		</film>
 	</sensor>
 
-	<bsdf type="dielectric" id="box1">
-        <float name="intIOR" value="1.5" />
-		<float name="extIOR" value="1" />
-	</bsdf>
-	<bsdf type="mirror" id="box2">
+	<bsdf type="diffuse" id="box">
 		<rgb name="reflectance" value="0.884774, 0.699933, 0.666224"/>
 	</bsdf>
+
 	<bsdf type="diffuse" id="white">
 		<rgb name="reflectance" value="0.884774, 0.699933, 0.666224"/>
 	</bsdf>
@@ -37,23 +34,40 @@
 		<rgb name="reflectance" value="0.105092, 0.378697, 0.0762035"/>
 	</bsdf>
 
+    <bsdf type="diffuse" id="blue">
+		<rgb name="reflectance" value="0.105092, 0.23442, 0.8762035"/>
+	</bsdf>
+
+
 	<bsdf type="diffuse" id="light">
 		<rgb name="reflectance" value="0.78, 0.78, 0.78"/>
 	</bsdf>
-
-	<shape type="obj">
-		<string name="filename" value="meshes/cbox_luminaire.obj"/>
-		<transform name="toWorld">
-			<translate x="0" y="-0.5" z="0"/>
+	<bsdf type="dielectric" id="Water" >
+		<float name="intIOR" value="1.8" />
+		<float name="extIOR" value="1" />
+	</bsdf>
+	<emitter type="point">
+        <rgb name="intensity" value="206260, 109088, 27630"/>
+        <point name="position" x="278" y="548" z="279.5"/>
+	</emitter>
+	<shape type="obj" >
+		<string name="filename" value="meshes/models/Mesh001.obj" />
+		<transform name="toWorld" >
+            <scale x="280" y="420" z="280"/>
+            <translate x="279.15" y="0" z="280"/>
 		</transform>
-
-		<ref id="light"/>
-
-		<emitter type="area">
-			<rgb name="radiance" value="10.313, 5.4544, 1.38152"/>
-		</emitter>
+		<ref id="Water" />
 	</shape>
-
+	<shape type="obj" >
+		<string name="filename" value="meshes/models/Mesh000.obj" />
+		<transform name="toWorld" >
+            <scale x="280" y="420" z="280"/>
+            <rotate angle="180" y="1"/>
+            <translate x="279.15" y="0" z="280"/>
+        </transform>
+		<boolean name="faceNormals" value="true" />
+		<ref id="Water" />
+	</shape>
 	<shape type="obj">
 		<string name="filename" value="meshes/cbox_floor.obj"/>
 
@@ -84,18 +98,17 @@
 		<ref id="red"/>
 	</shape>
 
-	<shape type="sphere">
-		<point name="center" x="150" y="100" z="200"/>
-		<float name="radius" value="100"/>
-		<ref id="box1"/>
+	<shape type="obj">
+		<string name="filename" value="meshes/cbox_smallbox.obj"/>
+		<ref id="box"/>
 	</shape>
-	<shape type="sphere">
-		<point name="center" x="380" y="120" z="300"/>
-		<float name="radius" value="120"/>
-		<ref id="box2"/>
+
+	<shape type="obj">
+		<string name="filename" value="meshes/cbox_largebox.obj"/>
+		<ref id="box"/>
 	</shape>
 
 	<background>
-		<rgb name="radiance" value="0, 0, 0"/>
+		<rgb name="radiance" value="0.0,0.0,0.0"/>
 	</background>
 </scene>
