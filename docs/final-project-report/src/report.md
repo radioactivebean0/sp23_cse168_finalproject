@@ -90,7 +90,7 @@ Rendering is done in parallel where each pixel is calculated as the sum of radia
 \\]
 
 \\[
-\text{color} = \sum_i \frac{\text{color_vp}i}{\text{num passes}}
+\text{color} = \frac{\sum_i \text{color_vp}_i}{\text{num passes}}
 \\]
 
 ## Results
