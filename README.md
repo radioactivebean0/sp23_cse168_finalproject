@@ -1,5 +1,9 @@
 # CSE 168 Final Project: Photon mapping
-Implementation of progressive photon mapping to better model caustics compared to path tracing and multiple importance sampling. Extension of the existing UCSD CSE168 ray tracing render projects Torrey. A pdf of the final report can be found in the docs folder or the direct markdown source can be viewed in mdbook.
+
+Implementation of progressive photon mapping to better model caustics compared to path tracing and
+multiple importance sampling. Extension of the existing UCSD CSE168 ray tracing render projects
+Torrey. A pdf of the final report can be found in the docs folder or the direct markdown source can
+be viewed in mdbook.
 
 Algorithm and implementation based on progressive photon mapping proposed by Toshiya et al.
 
@@ -7,7 +11,10 @@ Algorithm and implementation based on progressive photon mapping proposed by Tos
 ![mis img](docs/imgs/cbox-water-mis.png "With multiple importance sampling")
 
 **Progressive photon mapping**\
-![ppm img](docs/imgs/cbox-water-ppm.png "With progressive photon mapping")
+![ppm img](docs/final-project-report/src/water-ppm-2000k-photons-20-iter.png "With progressive photon mapping")
+
+Our detailed final report can be found
+[here](docs/final-project-report/Final%20Project%20Report.pdf).
 
 # torrey
 UCSD CSE 168 renderer

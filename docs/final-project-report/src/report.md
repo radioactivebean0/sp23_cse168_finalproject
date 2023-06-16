@@ -236,21 +236,11 @@ After:
 
 ### Mistaking the Y from XYZ as the G from RGB
 
-Before:
+This is the last bug that we fixed, so we won't show the after images here again.
 
 ![before](bug-xyz-before.png)
 
-After:
-
-![after](bug-xyz-after.png)
-
-Before:
-
 ![before](bug-xyz-before-point.png)
-
-After:
-
-![after](bug-xyz-after-point.png)
 
 ## Future steps and possible extensions
 
