@@ -99,11 +99,11 @@ Rendering is done in parallel where each pixel is calculated as the sum of radia
 
 cbox with multiple importance sampling, 512 spp:
 
-![cbox MIS 512 spp](cbox-mis-512-spp-max-2.png)
+![cbox MIS 512 spp](cbox-mis-512-spp.png)
 
-Same cbox scene with ppm, 64 spp, 200000 photons, 15 iterations:
+Same cbox scene with PPM 200k photons, 15 iterations:
 
-![cbox PPM 64 spp 200000 photons 15 iterations](cbox-ppm-64-spp-200000-photons-15-iter.png)
+![cbox PPM 200000 photons 15 iterations](cbox-ppm-200k-photons-15-iter.png)
 
 Both scenes took around 20 seconds to render, however using multiple importance sampling the result
 is much less noisy.  When not trying to render caustics, it seems to work better to just use other
@@ -115,9 +115,9 @@ Multiple importance sampling, 512 spp:
 
 ![water MIS 512 spp](water-mis-512-spp.png)
 
-PPM with 64 spp, 200000 photons, and 55 iterations:
+PPM with 200000 photons, and 55 iterations:
 
-![water PPM 64 spp 200000 photons 55 iterations](water-ppm-64-spp-200000-photons-55-iter.png)
+![water PPM 200000 photons 55 iterations](water-ppm-200k-photons-55-iter.png)
 
 These images both took around 2 minutes to render, in the one with MIS you are barely able to tell
 what the scene is, and with PPM it shows interesting patterns and is much more clear, but still has
