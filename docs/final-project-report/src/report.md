@@ -1,5 +1,10 @@
 # CSE 168 Final Project Report - Photon Mapping
 
+Ryan Nishimoto (<rnishimoto@ucsd.edu>), Yuchen Jing (<y5jing@ucsd.edu>)
+
+You can find the link to our GitHub repository
+[here](https://github.com/radioactivebean0/sp23_cse168_finalproject).
+
 ## Photon Mapping and Progressive Photon Mapping
 
 Earlier in the class we have implemented Monte Carlo ray tracing to solve the rendering equation
