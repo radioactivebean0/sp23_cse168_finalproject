@@ -178,7 +178,8 @@ After:
 - Work on the memory footprint; to generate the higher quality images it still needed many SPP and
   lots of photons which ended up using 10s of GBs of memory
 - Automatic hyperparameter searching
-- Combination with other integration methods. There are pixels which are totally
-  black in some of the result images such as the one with a glass ball or the water image. Combining the direct lighting with ppm should give these pixels some color.
+- Combination with other integration methods:  There are pixels which are totally black in some
+  of the result images such as the one with a glass ball or the water image.  Combining the direct
+  lighting with ppm should give these pixels some color.
 - Stochastic progressive photon mapping and other bidirectional light transport type algorithms can
   be combined for more noise free renders
