@@ -43,10 +43,14 @@ cd build
 ```
 This will generate an image "cbox.exr" using Mulitple Importance sampling renderer.
 
+As of now, the ppm renderer is hard coded to use max depth of 15, 2000000 photons, 64 visible points per pixel, 0.7 alpha, 20 passes, and default radius of 20. To change these values change the parameters in the function call `ppm` which is in render.cpp
+
+PPM also only supports dielectrics, diffuse, and mirrors.
+
 To view the image, use [hdrview](https://github.com/wkjarosz/hdrview), or [tev](https://github.com/Tom94/tev).
 
 ## CLI args
-As of now the arg parsing is a little bit wonky, if it crashes on parse the order is probably wrong or there is a typo or missing arg...
+As of now the arg parsing is a little bit wonky, if it crashes on parse then the order is probably wrong or there is a typo or missing arg or a bug we didn't catch yet...
 
 ```
 usage:
