@@ -50,7 +50,13 @@ To dispense photons first a light is chosen with uniform probability. Then the l
 \text{flux area} = \text{direction} \cdot \text{light norm} \cdot \text{flux point}
 \\]
 
-Then we iteratively trace the path of the photon into the scene depositing the photon’s flux at the intersection with the scene, calculate bounce and modify the flux by the BRDF of the intersection, then repeat. To terminate the path we use Russian Roulette with a method derived from the PBR book. It uses the delta in the Y term in the flux of the photon to determine when to stop. The natural eyes respond more to green colors which is why Y is used _(or we thought so -- this could still be a bug in our renderer)_.
+Then we iteratively trace the path of the photon into the scene depositing the photon’s flux at the
+intersection with the scene, calculate bounce and modify the flux by the BRDF of the intersection,
+then repeat. To terminate the path we use Russian Roulette with a method derived from the PBR book.
+It uses the delta in the Y term in the flux of the photon to determine when to stop. The natural
+eyes respond more to green colors which is why Y is used.  Or we thought so -- turns out that's the
+source of the random blobs in our results.  The correct explanation is that Y refers to the Y in XYZ
+color space, which represents the brightness.  Images of the bug are shown below.
 
 Each photon is traced serially since the current data structure used is not thread safe. This is one of the possible future improvements.
 
@@ -133,11 +139,15 @@ some splotchiness.
 
 The same splotchiness still exist here.
 
+200,000 photons, 100 passes:
+
+![cbox PPM 200000 photons 100 iterations](cbox-ppm-200k-photons-100-iter.png)
+
 2,000,000 photons, 20 passes:
 
 ![cbox PPM 2000000 photons 20 iterations](cbox-ppm-2000k-photons-20-iter.png)
 
-As photon count is increased, the splotchiness gets a lot better.
+As photon count or number of passes are increased, the splotchiness gets a lot better.
 
 #### cbox with spheres
 
@@ -145,11 +155,17 @@ As photon count is increased, the splotchiness gets a lot better.
 
 ![spheres PPM 200000 photons 20 iterations](spheres-ppm-200k-photons-20-iter.png)
 
+200,000 photons, 100 passes:
+
+![spheres PPM 200000 photons 100 iterations](spheres-ppm-200k-photons-100-iter.png)
+
 2,000,000 photons, 20 passes:
 
 ![spheres PPM 2000000 photons 20 iterations](spheres-ppm-2000k-photons-20-iter.png)
 
-As photon count is increased, the splotchiness also gets a lot better in this scene.
+As photon count or number of passes are increased, the splotchiness also gets a lot better in this
+scene.  It appears that we really need a higher number of photons since it improves the result the
+most.
 
 ### Water with point light
 
@@ -173,6 +189,24 @@ Before:
 After:
 
 ![after](bug-parentheses-after.png)
+
+### Mistaking the Y from XYZ as the G from RGB
+
+Before:
+
+![before](bug-xyz-before.png)
+
+After:
+
+![after](bug-xyz-after.png)
+
+Before:
+
+![before](bug-xyz-before-point.png)
+
+After:
+
+![after](bug-xyz-after-point.png)
 
 ## Future steps and possible extensions
 
