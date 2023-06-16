@@ -17,6 +17,18 @@
 
 #include <stdlib.h>
 
+inline void XYZToRGB(const Real xyz[3], Real rgb[3]) {
+    rgb[0] =  3.240479f*xyz[0] - 1.537150f*xyz[1] - 0.498535f*xyz[2];
+    rgb[1] = -0.969256f*xyz[0] + 1.875991f*xyz[1] + 0.041556f*xyz[2];
+    rgb[2] =  0.055648f*xyz[0] - 0.204043f*xyz[1] + 1.057311f*xyz[2];
+}
+
+inline void RGBToXYZ(const Real rgb[3], Real xyz[3]) {
+    xyz[0] = 0.412453f*rgb[0] + 0.357580f*rgb[1] + 0.180423f*rgb[2];
+    xyz[1] = 0.212671f*rgb[0] + 0.715160f*rgb[1] + 0.072169f*rgb[2];
+    xyz[2] = 0.019334f*rgb[0] + 0.119193f*rgb[1] + 0.950227f*rgb[2];
+}
+
 void multiple_importance(Scene &scene, Image3 &img, int max_depth, const int num_tiles_x, const int num_tiles_y, const int tile_size, const int w, const int h, const int spp){
     const Real real_spp = Real(spp);
     ProgressReporter reporter(num_tiles_x * num_tiles_y);
@@ -261,7 +273,14 @@ void ppm(
                     Vector3 newluminance = luminance * fr;
 
                     // russian roulette, reference: https://www.pbr-book.org/3ed-2018/Light_Transport_III_Bidirectional_Methods/Stochastic_Progressive_Photon_Mapping#AccumulatingPhotonContributions
-                    Real q = max(Real(0.0), 1.0 - newluminance.y / luminance.y);
+                    Real new_rgb[3] = {newluminance.x, newluminance.y, newluminance.z};
+                    Real new_xyz[3];
+                    RGBToXYZ(new_rgb, new_xyz);
+                    Real rgb[3] = {luminance.x, luminance.y, luminance.z};
+                    Real xyz[3];
+                    RGBToXYZ(rgb, xyz);
+
+                    Real q = max(Real(0.0), 1.0 - new_xyz[1] / xyz[1]);
                     if (next_pcg32_real<Real>(pcg_state) < q) {
                         break;
                     }
@@ -474,7 +493,7 @@ Image3 render_img(const std::vector<std::string> &params) {
             64, // hard code for now
             // FIXME use values that actually make sense
             // const long photon_count, const Real alpha, const int passes, const Real default_radius);
-            200000,
+            2000000,
             0.7, // alpha value from the paper
             20,
             20.0
