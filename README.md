@@ -1,11 +1,9 @@
 # CSE 168 Final Project: Photon mapping
-Hopefully an implementation of some progressive photon mapping algorithm to better model caustics and glass with global illumination. Extension of the existing UCSD CSE168 ray tracing render projects Torrey.
+Implementation of progressive photon mapping to better model caustics compared to path tracing and multiple importance sampling. Extension of the existing UCSD CSE168 ray tracing render projects Torrey. A pdf of the final report can be found in the docs folder or the direct markdown source can be viewed in mdbook.
 
-Algorithm and implementation based on progressive photon mapping proposed by Henrik Wann Jensen. Paper: (http://graphics.ucsd.edu/~henrik/papers/progressive_photon_mapping/progressive_photon_mapping.pdf)
-
-Also referred to PBR book section on stochastic progressive photon mapping as it has a small section about ppm.
-https://www.pbr-book.org/3ed-2018/Light_Transport_III_Bidirectional_Methods/Stochastic_Progressive_Photon_Mapping#
-
+Algorithm and implementation based on progressive photon mapping proposed by Toshiya et al.
+![mis img](docs/imgs/cbox-water-mis.png "With multiple importance sampling")
+![ppm img](docs/imgs/cbox-water-ppm.png "With progressive photon mapping")
 # torrey
 UCSD CSE 168 renderer
 https://cseweb.ucsd.edu/~tzli/cse168/
@@ -14,7 +12,7 @@ Project is an extension of the implemented homework assignments from
 https://github.com/BachiLi/torrey_public
 
 # Build
-All the dependencies except for some scenes are included. Use CMake to build. Clone the repo
+All the dependencies except for some scenes are included. Use CMake to build. First clone the repo, then run
 ```
 mkdir build
 cd build
@@ -31,6 +29,7 @@ To use Helix editor and language server support on Rocky 9:
 You should also download the scenes we will use in later homeworks from the following Google drive link: 
 [https://drive.google.com/file/d/1SrGaw6AbyfhPs1NAuRjxSEQmf34DPKhm/view?usp=sharing](https://drive.google.com/file/d/1SrGaw6AbyfhPs1NAuRjxSEQmf34DPKhm/view?usp=sharing).
 
+The water meshes used for the cbox water scenes are from the Water Caustic scene https://benedikt-bitterli.me/resources/
 # Run
 Try 
 ```
@@ -64,6 +63,11 @@ optional args:
 # Acknowledgement
 Code is extension of the Torrey repo for UCSD CSE 168 homework assignments that is linked above
 
+Toshiya et al. Paper: (http://graphics.ucsd.edu/~henrik/papers/progressive_photon_mapping/progressive_photon_mapping.pdf)
+
+Also referred to PBR book section on stochastic progressive photon mapping as it has a small section about ppm.
+https://www.pbr-book.org/3ed-2018/Light_Transport_III_Bidirectional_Methods/Stochastic_Progressive_Photon_Mapping#
+
 The renderer is heavily inspired by [pbrt](https://pbr-book.org/), [mitsuba](http://www.mitsuba-renderer.org/index_old.html), [the ray tracing series](https://raytracing.github.io/), and [darts](https://cs87-dartmouth.github.io/Fall2022/darts-overview.html).
 
 We use [pugixml](https://pugixml.org/) to parse XML files.
@@ -72,7 +76,9 @@ We use [stb_image](https://github.com/nothings/stb) and [tinyexr](https://github
 
 We use [miniz](https://github.com/richgel999/miniz) for compression & decompression.
 
-We use [tinyply](https://github.com/ddiakopoulos/tinyply) for parsing PLY files.
+We use [tinyply](https://github.com/ddiakopoulos/tinyply) for parsing PLY files.]
+
+We use [nanoflann](https://github.com/jlblancoc/nanoflann) for a k-d tree library
 
 Many scenes in the scenes folder are downloaded from:
 - [http://www.mitsuba-renderer.org/download.html](http://www.mitsuba-renderer.org/download.html)
