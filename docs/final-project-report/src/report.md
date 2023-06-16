@@ -115,7 +115,7 @@ Multiple importance sampling, 512 spp:
 
 ![water MIS 512 spp](water-mis-512-spp.png)
 
-PPM with 200000 photons, and 55 iterations:
+PPM with 200,000 photons, and 55 iterations:
 
 ![water PPM 200000 photons 55 iterations](water-ppm-200k-photons-55-iter.png)
 
@@ -127,27 +127,27 @@ some splotchiness.
 
 #### cbox
 
-200,000 photons, 100 passes:
+200,000 photons, 20 passes:
 
-![cbox PPM 200000 photons 100 iterations](cbox-ppm-200000-photons-100-iter.png)
+![cbox PPM 200000 photons 20 iterations](cbox-ppm-200k-photons-20-iter.png)
 
 The same splotchiness still exist here.
 
-2,000,000 photons, 100 passes:
+2,000,000 photons, 20 passes:
 
-![cbox PPM 2000000 photons 100 iterations](cbox-ppm-2000000-photons-100-iter.png)
+![cbox PPM 2000000 photons 20 iterations](cbox-ppm-2000k-photons-20-iter.png)
 
 As photon count is increased, the splotchiness gets a lot better.
 
 #### cbox with spheres
 
+200,000 photons, 20 passes:
+
+![spheres PPM 200000 photons 20 iterations](spheres-ppm-200k-photons-20-iter.png)
+
 2,000,000 photons, 20 passes:
 
-![spheres PPM 2000000 photons 20 iterations](spheres-ppm-2000000-photons-20-iter.png)
-
-20,000,000 photons, 20 passes:
-
-![spheres PPM 20000000 photons 20 iterations](spheres-ppm-20000000-photons-20-iter.png)
+![spheres PPM 2000000 photons 20 iterations](spheres-ppm-2000k-photons-20-iter.png)
 
 As photon count is increased, the splotchiness also gets a lot better in this scene.
 
@@ -155,10 +155,12 @@ As photon count is increased, the splotchiness also gets a lot better in this sc
 
 2,000,000 photons, 20 passes:
 
-![point PPM 2000000 photons 20 iterations](point-ppm-2000000-photons-20-iter.png)
+![point PPM 2000k photons 20 iterations](point-ppm-2000k-photons-20-iter.png)
 
 Our PPM renderer allows us to visualize well the kind of caustics even with a point light, where our
-MIS renderer would have completely choked on.
+MIS renderer would have completely choked on.  Same goes for the small light:
+
+![water PPM 2000k photons 20 iterations](water-ppm-2000k-photons-20-iter.png)
 
 ## Bugs we fixed
 
