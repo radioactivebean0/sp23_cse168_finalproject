@@ -2,7 +2,9 @@
 Implementation of progressive photon mapping to better model caustics compared to path tracing and multiple importance sampling. Extension of the existing UCSD CSE168 ray tracing render projects Torrey. A pdf of the final report can be found in the docs folder or the direct markdown source can be viewed in mdbook.
 
 Algorithm and implementation based on progressive photon mapping proposed by Toshiya et al.
+**Importance sampling**
 ![mis img](docs/imgs/cbox-water-mis.png "With multiple importance sampling")
+**Progressive photon mapping**
 ![ppm img](docs/imgs/cbox-water-ppm.png "With progressive photon mapping")
 # torrey
 UCSD CSE 168 renderer
